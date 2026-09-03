@@ -1,0 +1,20 @@
+name = "lamha-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+# Dedicated to this project only — do not point at any other project's
+# KV namespace or R2 bucket. Fill in the real `id` values after running
+# `wrangler kv namespace create LAMHA_KV` (see README).
+[[kv_namespaces]]
+binding = "LAMHA_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[[r2_buckets]]
+binding = "LAMHA_LOGOS"
+bucket_name = "lamha-logos"
+
+# Secrets (set via `wrangler secret put <NAME>`, never committed here):
+#   ADMIN_PASSWORD — shared admin password checked by requireAdmin middleware
+
+[vars]
+# Non-secret config can go here later if needed (e.g. DEMO_TTL_DAYS = "14")

@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA fallback: every path (including /:demoId and /admin/*) resolves to
+# index.html so client-side routing (react-router-dom) handles it.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

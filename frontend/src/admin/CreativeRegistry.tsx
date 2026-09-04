@@ -154,12 +154,71 @@ function IconAtSign() {
   );
 }
 
+function IconUpload() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 16V4" />
+      <path d="M6 10l6-6 6 6" />
+      <path d="M4 20h16" />
+    </svg>
+  );
+}
+
 // Registry entries store website/social links as plain text ("basa.com"),
 // not necessarily a full URL — add a protocol so the link actually
 // navigates instead of being treated as relative to the current page.
 function withProtocol(url: string): string {
   const trimmed = url.trim();
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+// "Standard services and estimated price range" is a free-text field
+// (real submissions read like "SAR 500 – 600 per hour... engraving 600 –
+// 700..." — see data-imports/basa-suppliers-2026-09-04.json), not a
+// structured number, so there's no reliable single "the price" to pull
+// out. This is a best-effort skim: find every number that has a currency
+// token stuck to it, keep only the currency that shows up most (so a
+// stray "$2,500" buried in an otherwise all-SAR paragraph doesn't throw
+// the range off), and report the low–high of just those. Numbers with no
+// currency attached (headcounts, hours, dates) are ignored on purpose.
+// Returns null rather than guess when nothing currency-tagged is found —
+// the full text is always still one click away (card → expand).
+const CURRENCY_WORD = "SAR|USD|AED|BD|EGP|QAR|KWD|OMR|SR|riyals?|riyal|dollars?|\\$|€|£";
+const PRICE_TOKEN_RE = new RegExp(
+  `(?:(${CURRENCY_WORD})\\s*([\\d,]+(?:\\.\\d+)?)|([\\d,]+(?:\\.\\d+)?)\\s*(${CURRENCY_WORD}))`,
+  "gi",
+);
+
+function normalizeCurrency(raw: string): string {
+  const c = raw.toLowerCase();
+  if (c === "sr" || c.startsWith("riyal")) return "SAR";
+  if (c.startsWith("dollar") || c === "$") return "USD";
+  if (c === "€") return "EUR";
+  if (c === "£") return "GBP";
+  return raw.toUpperCase();
+}
+
+function summarizePriceRange(text: string): string | null {
+  if (!text.trim()) return null;
+  const matches: { value: number; currency: string }[] = [];
+  for (const m of text.matchAll(PRICE_TOKEN_RE)) {
+    const currencyRaw = m[1] ?? m[4];
+    const numberRaw = m[2] ?? m[3];
+    if (!currencyRaw || !numberRaw) continue;
+    const value = Number(numberRaw.replace(/,/g, ""));
+    if (!Number.isFinite(value)) continue;
+    matches.push({ value, currency: normalizeCurrency(currencyRaw) });
+  }
+  if (matches.length === 0) return null;
+
+  const counts = new Map<string, number>();
+  for (const m of matches) counts.set(m.currency, (counts.get(m.currency) ?? 0) + 1);
+  const dominant = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const values = matches.filter((m) => m.currency === dominant).map((m) => m.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const fmt = (n: number) => n.toLocaleString("en-US");
+  return min === max ? `~${dominant} ${fmt(min)}` : `${dominant} ${fmt(min)}–${fmt(max)}`;
 }
 
 // A creative service chip: hollow ring marker in its field's hue, so it
@@ -239,6 +298,7 @@ export function CreativeRegistry() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ added: number; skipped: string[] } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!password) return;
@@ -415,6 +475,7 @@ export function CreativeRegistry() {
   }
 
   const archivedCount = creatives?.filter((e) => e.status === "archived").length ?? 0;
+  const totalCount = creatives?.filter((e) => e.status !== "archived").length ?? 0;
 
   const visibleCreatives = useMemo(() => {
     if (!creatives) return null;
@@ -443,22 +504,30 @@ export function CreativeRegistry() {
           gap: 12,
         }}
       >
-        <h1 style={{ margin: 0 }}>{showTrash ? "Creative Registry — Trash" : "Creative Registry"}</h1>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <h1 style={{ margin: 0 }}>{showTrash ? "Creative Registry — Trash" : "Creative Registry"}</h1>
+          {!showTrash && creatives && (
+            <span className="pill" style={{ fontSize: "0.7rem" }}>
+              {totalCount} {totalCount === 1 ? "creative" : "creatives"}
+            </span>
+          )}
+        </div>
         {!showTrash && !showForm && (
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
             <label
-              className="btn-secondary"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
+                gap: 6,
                 margin: 0,
-                textTransform: "none",
-                letterSpacing: 0,
+                fontSize: "0.85rem",
                 fontWeight: 600,
+                color: "var(--color-primary)",
+                opacity: importing ? 0.5 : 0.75,
                 cursor: importing ? "not-allowed" : "pointer",
-                opacity: importing ? 0.6 : 1,
               }}
             >
+              <IconUpload />
               {importing ? "Importing…" : "Import from file"}
               <input
                 type="file"
@@ -795,9 +864,22 @@ export function CreativeRegistry() {
                 ? `${entry.phoneCountryCode}${entry.phone}`.replace(/\D/g, "")
                 : null;
             const confirming = confirmDeleteId === entry.id;
+            const isExpanded = expandedId === entry.id;
+            const priceSummary = summarizePriceRange(entry.standardServicesPriceRange);
             return (
               <div key={entry.id} className="card" style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
+                  onClick={() => setExpandedId((v) => (v === entry.id ? null : entry.id))}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setExpandedId((v) => (v === entry.id ? null : entry.id));
+                    }
+                  }}
+                >
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                     <strong>{entry.displayName}</strong>
                     <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>({entry.contactName})</span>
@@ -811,6 +893,9 @@ export function CreativeRegistry() {
                         Removed {new Date(entry.archivedAt).toLocaleDateString()}
                       </span>
                     )}
+                    <span style={{ marginLeft: "auto", opacity: 0.4, fontSize: "0.7rem" }}>
+                      {isExpanded ? "▾ less" : "▸ more"}
+                    </span>
                   </div>
 
                   {entry.creativeFields.length > 0 && (
@@ -826,6 +911,23 @@ export function CreativeRegistry() {
                         <ServiceChip key={s} service={s} field={fieldForService(s)} selected={false} />
                       ))}
                     </div>
+                  )}
+
+                  {priceSummary && (
+                    <p
+                      style={{
+                        margin: "8px 0 0",
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                        color: "var(--paid)",
+                      }}
+                    >
+                      {priceSummary}
+                      <span style={{ fontWeight: 400, opacity: 0.6, color: "var(--color-primary)" }}>
+                        {" "}
+                        (from their price notes — click to read in full)
+                      </span>
+                    </p>
                   )}
 
                   {entry.workDescription && (
@@ -844,7 +946,11 @@ export function CreativeRegistry() {
                     }}
                   >
                     {entry.email && (
-                      <a href={`mailto:${entry.email}`} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <a
+                        href={`mailto:${entry.email}`}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                      >
                         ✉ {entry.email}
                       </a>
                     )}
@@ -858,6 +964,7 @@ export function CreativeRegistry() {
                         href={`https://wa.me/${waDigits}`}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--paid)", fontWeight: 600 }}
                       >
                         ✆ WhatsApp
@@ -870,6 +977,7 @@ export function CreativeRegistry() {
                         rel="noreferrer"
                         title="Website"
                         aria-label="Website"
+                        onClick={(e) => e.stopPropagation()}
                         style={{ display: "inline-flex", alignItems: "center", opacity: 0.75 }}
                       >
                         <IconGlobe />
@@ -882,12 +990,47 @@ export function CreativeRegistry() {
                         rel="noreferrer"
                         title="Social media"
                         aria-label="Social media"
+                        onClick={(e) => e.stopPropagation()}
                         style={{ display: "inline-flex", alignItems: "center", opacity: 0.75 }}
                       >
                         <IconAtSign />
                       </a>
                     )}
                   </div>
+
+                  {isExpanded && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        paddingTop: 12,
+                        borderTop: "1px solid var(--color-pill-bg)",
+                        display: "grid",
+                        gap: 10,
+                      }}
+                    >
+                      {entry.standardServicesPriceRange && (
+                        <div>
+                          <label style={{ marginBottom: 2 }}>Services & price notes (as submitted)</label>
+                          <p style={{ margin: 0, fontSize: "0.82rem", opacity: 0.85, whiteSpace: "pre-wrap" }}>
+                            {entry.standardServicesPriceRange}
+                          </p>
+                        </div>
+                      )}
+                      {entry.technicalRequirements && (
+                        <div>
+                          <label style={{ marginBottom: 2 }}>Technical requirements</label>
+                          <p style={{ margin: 0, fontSize: "0.82rem", opacity: 0.85, whiteSpace: "pre-wrap" }}>
+                            {entry.technicalRequirements}
+                          </p>
+                        </div>
+                      )}
+                      <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.5 }}>
+                        Added {new Date(entry.addedAt).toLocaleDateString()}
+                        {entry.updatedAt !== entry.addedAt &&
+                          ` · Updated ${new Date(entry.updatedAt).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>

@@ -12,11 +12,31 @@ function formatExpiry(expiresAt: number): string {
   return `${days}d left`;
 }
 
+// The actual shareable prospect link (e.g.
+// https://lamha-demo-gen.netlify.app/jxdjddwepqdqag2epps7k4brsw) — same
+// origin this admin page is served from, since both live on the one
+// Netlify site. Nothing to store for this; it's just the demo's id.
+function shareUrl(id: string): string {
+  return `${window.location.origin}/${id}`;
+}
+
 export function AdminDashboard() {
   const { password } = useAdminAuth();
   const [demos, setDemos] = useState<DemoIndexEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [resyncing, setResyncing] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  async function copyLink(id: string) {
+    try {
+      await navigator.clipboard.writeText(shareUrl(id));
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((v) => (v === id ? null : v)), 1800);
+    } catch {
+      // Clipboard permission denied or unavailable — the Open ↗ link next
+      // to this button still works either way.
+    }
+  }
 
   const load = useCallback(async () => {
     if (!password) return;
@@ -66,6 +86,7 @@ export function AdminDashboard() {
             <thead>
               <tr style={{ textAlign: "left", background: "var(--color-background)" }}>
                 <th style={{ padding: 12 }}>Company</th>
+                <th style={{ padding: 12 }}>Client link</th>
                 <th style={{ padding: 12 }}>Mode</th>
                 <th style={{ padding: 12 }}>Status</th>
                 <th style={{ padding: 12 }}>Expires</th>
@@ -76,6 +97,21 @@ export function AdminDashboard() {
               {demos.map((demo) => (
                 <tr key={demo.id} style={{ borderTop: "1px solid var(--color-pill-bg)" }}>
                   <td style={{ padding: 12 }}>{demo.companyName}</td>
+                  <td style={{ padding: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.8rem" }}>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => copyLink(demo.id)}
+                        style={{ padding: "4px 10px", fontSize: "0.75rem" }}
+                      >
+                        {copiedId === demo.id ? "Copied!" : "Copy link"}
+                      </button>
+                      <a href={shareUrl(demo.id)} target="_blank" rel="noreferrer">
+                        Open ↗
+                      </a>
+                    </div>
+                  </td>
                   <td style={{ padding: 12 }}>
                     <span className="pill">{demo.mode === "self-service" ? "Self-service" : "Managed"}</span>
                   </td>

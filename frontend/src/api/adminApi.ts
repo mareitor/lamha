@@ -201,6 +201,17 @@ export function addCreative(
   return apiRequest("/api/admin/creatives", { method: "POST", body: entry, adminPassword });
 }
 
+// Bulk import — e.g. a batch exported from a real supplier-intake form.
+// Server-side dedupes by email against the live registry and returns
+// which rows were skipped as duplicates, so a re-run of the same file
+// is safe.
+export function importCreatives(
+  adminPassword: string,
+  entries: Partial<CreativeRegistryEntry>[],
+): Promise<{ creatives: CreativeRegistryEntry[]; added: number; skipped: string[] }> {
+  return apiRequest("/api/admin/creatives/import", { method: "POST", body: { entries }, adminPassword });
+}
+
 export function updateCreative(
   adminPassword: string,
   itemId: string,

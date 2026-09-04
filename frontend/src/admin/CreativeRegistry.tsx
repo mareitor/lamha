@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import type { ChangeEvent } from "react";
 import { useAdminAuth } from "./AdminAuthContext";
 import * as adminApi from "../api/adminApi";
 import { AdminLayout } from "./AdminLayout";
@@ -20,6 +21,9 @@ import type { CreativeRegistryEntry } from "../types";
 // client-facing view exists — none does yet.
 
 type FormState = {
+  // "archived" is deliberately not selectable here — that state is only
+  // reached via Remove/Restore in the list, never through this form.
+  status: "active" | "inactive";
   displayName: string;
   contactName: string;
   email: string;
@@ -36,6 +40,7 @@ type FormState = {
 };
 
 const EMPTY_FORM: FormState = {
+  status: "active",
   displayName: "",
   contactName: "",
   email: "",
@@ -229,7 +234,11 @@ export function CreativeRegistry() {
   const [showTrash, setShowTrash] = useState(false);
   const [search, setSearch] = useState("");
   const [fieldFilter, setFieldFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [duplicateMatch, setDuplicateMatch] = useState<CreativeRegistryEntry | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ added: number; skipped: string[] } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!password) return;
@@ -255,6 +264,7 @@ export function CreativeRegistry() {
   function startEdit(entry: CreativeRegistryEntry) {
     setEditingId(entry.id);
     setForm({
+      status: entry.status === "inactive" ? "inactive" : "active",
       displayName: entry.displayName,
       contactName: entry.contactName,
       email: entry.email,
@@ -367,6 +377,43 @@ export function CreativeRegistry() {
     setConfirmDeleteId(null);
   }
 
+  // Bulk import — e.g. the 45-row batch exported from the real
+  // supplier-intake form. Reads a JSON file (an array of
+  // Partial<CreativeRegistryEntry> objects) chosen via the file input
+  // below, hands it to the server-side import route (which defaults any
+  // missing/malformed field to a blank rather than erroring, and skips
+  // anything whose email already matches a live registry entry), then
+  // refreshes the list and shows a one-line summary. Never throws on a
+  // bad file — a parse failure or wrong shape just surfaces as a message,
+  // same spirit as the server route: one bad input can't break the page.
+  async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file next time
+    if (!file || !password) return;
+    setImportError(null);
+    setImportResult(null);
+    setImporting(true);
+    try {
+      const text = await file.text();
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new Error("That file isn't valid JSON.");
+      }
+      if (!Array.isArray(parsed)) {
+        throw new Error("Expected a JSON array of creative entries.");
+      }
+      const { creatives, added, skipped } = await adminApi.importCreatives(password, parsed);
+      setCreatives(creatives);
+      setImportResult({ added, skipped });
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Import failed.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   const archivedCount = creatives?.filter((e) => e.status === "archived").length ?? 0;
 
   const visibleCreatives = useMemo(() => {
@@ -374,6 +421,7 @@ export function CreativeRegistry() {
     const base = creatives.filter((e) => (showTrash ? e.status === "archived" : e.status !== "archived"));
     const q = search.trim().toLowerCase();
     return base.filter((e) => {
+      if (!showTrash && statusFilter !== "all" && e.status !== statusFilter) return false;
       if (fieldFilter && !e.creativeFields.includes(fieldFilter)) return false;
       if (!q) return true;
       const haystack = [e.displayName, e.contactName, e.email, ...e.creativeFields, ...e.creativeServices]
@@ -381,7 +429,7 @@ export function CreativeRegistry() {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [creatives, showTrash, search, fieldFilter]);
+  }, [creatives, showTrash, search, fieldFilter, statusFilter]);
 
   return (
     <AdminLayout>
@@ -396,7 +444,33 @@ export function CreativeRegistry() {
         }}
       >
         <h1 style={{ margin: 0 }}>{showTrash ? "Creative Registry — Trash" : "Creative Registry"}</h1>
-        {!showTrash && !showForm && <button onClick={startAdd}>+ Add creative</button>}
+        {!showTrash && !showForm && (
+          <div style={{ display: "flex", gap: 10 }}>
+            <label
+              className="btn-secondary"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                margin: 0,
+                textTransform: "none",
+                letterSpacing: 0,
+                fontWeight: 600,
+                cursor: importing ? "not-allowed" : "pointer",
+                opacity: importing ? 0.6 : 1,
+              }}
+            >
+              {importing ? "Importing…" : "Import from file"}
+              <input
+                type="file"
+                accept="application/json"
+                onChange={handleImportFile}
+                disabled={importing}
+                style={srOnlyCheckbox}
+              />
+            </label>
+            <button onClick={startAdd}>+ Add creative</button>
+          </div>
+        )}
       </div>
       <p style={{ fontSize: "0.85rem", opacity: 0.75, marginTop: -12, marginBottom: 24 }}>
         {showTrash
@@ -405,10 +479,59 @@ export function CreativeRegistry() {
       </p>
 
       {error && <p style={{ color: "#B23A48" }}>{error}</p>}
+      {importError && <p style={{ color: "#B23A48" }}>{importError}</p>}
+      {importResult && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 24,
+            padding: "12px 16px",
+            background: "var(--paid-bg)",
+            border: "1px solid var(--paid)",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "0.85rem" }}>
+            Import complete — added <strong>{importResult.added}</strong>
+            {importResult.skipped.length > 0 && (
+              <>
+                , skipped <strong>{importResult.skipped.length}</strong> duplicate
+                {importResult.skipped.length === 1 ? "" : "s"} (already in the registry by email):{" "}
+                {importResult.skipped.join(", ")}
+              </>
+            )}
+            . New entries were imported as <strong>Inactive</strong> — review and flip each to Active from its
+            edit form when you're ready.
+          </p>
+          <button
+            className="btn-secondary"
+            style={{ marginTop: 8, fontSize: "0.75rem", padding: "5px 10px" }}
+            onClick={() => setImportResult(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {showForm && (
         <div className="card" style={{ marginBottom: 24, maxWidth: 640 }}>
           <h3 style={{ marginTop: 0 }}>{editingId ? "Edit creative" : "Add a creative"}</h3>
+
+          <div style={{ marginBottom: 16 }}>
+            <label>Registry status</label>
+            <div style={{ display: "flex", gap: 16, marginTop: 4 }}>
+              {(["active", "inactive"] as const).map((opt) => (
+                <label key={opt} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem" }}>
+                  <input
+                    type="radio"
+                    name="status"
+                    checked={form.status === opt}
+                    onChange={() => setForm({ ...form, status: opt })}
+                  />
+                  {opt === "active" ? "Active" : "Inactive (hidden from matching)"}
+                </label>
+              ))}
+            </div>
+          </div>
 
           <h4 style={{ marginBottom: 8 }}>Contact information</h4>
           <label>Artist / studio / group / band name</label>
@@ -630,6 +753,17 @@ export function CreativeRegistry() {
               </option>
             ))}
           </select>
+          {!showTrash && (
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
+              style={{ maxWidth: 180 }}
+            >
+              <option value="all">Active + inactive</option>
+              <option value="active">Active only</option>
+              <option value="inactive">Inactive only</option>
+            </select>
+          )}
           {archivedCount > 0 && (
             <button
               className="btn-secondary"

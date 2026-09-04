@@ -348,17 +348,18 @@ adminRoutes.get("/creatives", async (c) => {
   return c.json({ creatives: registry });
 });
 
-adminRoutes.post("/creatives", async (c) => {
-  const body = await c.req.json<Partial<CreativeRegistryEntry>>();
-  const registry = await getCreativeRegistry(c.env);
-  const now = Date.now();
-  const entry: CreativeRegistryEntry = {
+// Shared entry-construction so a single add (below) and a bulk import
+// (further down) fill in exactly the same defaults for anything the
+// caller didn't supply — a malformed or partial row from an import batch
+// degrades to sane blanks instead of throwing.
+function buildCreativeEntry(body: Partial<CreativeRegistryEntry>, now: number): CreativeRegistryEntry {
+  return {
     id: generateItemId(),
     status: body.status ?? "active",
     archivedAt: null,
     displayName: body.displayName ?? "Untitled",
-    creativeFields: body.creativeFields ?? [],
-    creativeServices: body.creativeServices ?? [],
+    creativeFields: Array.isArray(body.creativeFields) ? body.creativeFields : [],
+    creativeServices: Array.isArray(body.creativeServices) ? body.creativeServices : [],
     workDescription: body.workDescription ?? "",
     website: body.website ?? "",
     socialMediaLink: body.socialMediaLink ?? "",
@@ -372,9 +373,53 @@ adminRoutes.post("/creatives", async (c) => {
     addedAt: now,
     updatedAt: now,
   };
+}
+
+adminRoutes.post("/creatives", async (c) => {
+  const body = await c.req.json<Partial<CreativeRegistryEntry>>();
+  const registry = await getCreativeRegistry(c.env);
+  const entry = buildCreativeEntry(body, Date.now());
   registry.push(entry);
   await putCreativeRegistry(c.env, registry);
   return c.json({ creatives: registry }, 201);
+});
+
+// Bulk import (e.g. a batch of real intake-form submissions exported to
+// JSON). Never throws on a bad or unrecognized field — buildCreativeEntry
+// above already defaults anything missing/malformed to a blank rather
+// than erroring, so one bad row can't sink the whole batch. Duplicate
+// guard is email-based (case-insensitive), checked against both the
+// existing live registry and entries already added earlier in this same
+// batch — matches the single-add duplicate check in the admin UI.
+adminRoutes.post("/creatives/import", async (c) => {
+  const body = await c.req
+    .json<{ entries?: Partial<CreativeRegistryEntry>[] }>()
+    .catch((): { entries?: Partial<CreativeRegistryEntry>[] } => ({}));
+  const incoming = Array.isArray(body.entries) ? body.entries : [];
+  const registry = await getCreativeRegistry(c.env);
+  const seenEmails = new Set(
+    registry
+      .filter((e) => e.status !== "archived")
+      .map((e) => e.email.trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  const now = Date.now();
+  const skipped: string[] = [];
+  let added = 0;
+  for (const raw of incoming) {
+    const email = (raw.email ?? "").trim().toLowerCase();
+    if (email && seenEmails.has(email)) {
+      skipped.push(raw.displayName || raw.email || "(unnamed)");
+      continue;
+    }
+    registry.push(buildCreativeEntry(raw, now));
+    if (email) seenEmails.add(email);
+    added++;
+  }
+
+  await putCreativeRegistry(c.env, registry);
+  return c.json({ creatives: registry, added, skipped });
 });
 
 adminRoutes.patch("/creatives/:itemId", async (c) => {

@@ -82,7 +82,9 @@ adminRoutes.get("/demos/:id", async (c) => {
 async function loadOr404(
   c: Context<{ Bindings: Env; Variables: Vars }>,
 ): Promise<DemoRecord | null> {
-  return getDemo(c.env, c.req.param("id"));
+  const id = c.req.param("id");
+  if (!id) return null;
+  return getDemo(c.env, id);
 }
 
 adminRoutes.patch("/demos/:id/branding", async (c) => {
@@ -149,7 +151,8 @@ adminRoutes.patch("/demos/:id/mode", async (c) => {
 adminRoutes.patch("/demos/:id/extend", async (c) => {
   const demo = await loadOr404(c);
   if (!demo) return c.json({ error: "not_found" }, 404);
-  const body = await c.req.json<{ extendByDays?: number; newExpiresAt?: number }>().catch(() => ({}));
+  type ExtendBody = { extendByDays?: number; newExpiresAt?: number };
+  const body = await c.req.json<ExtendBody>().catch((): ExtendBody => ({}));
   const DAY_MS = 24 * 60 * 60 * 1000;
   const newExpiresAt =
     body.newExpiresAt ?? Date.now() + (body.extendByDays ?? 14) * DAY_MS;

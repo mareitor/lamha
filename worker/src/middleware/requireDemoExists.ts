@@ -11,7 +11,7 @@ export const requireDemoExists: MiddlewareHandler<{
   Variables: { demo: DemoRecord };
 }> = async (c, next) => {
   const id = c.req.param("id");
-  const demo = await getDemo(c.env, id);
+  const demo = id ? await getDemo(c.env, id) : null;
   if (!demo) {
     return c.json({ error: "not_found" }, 404);
   }

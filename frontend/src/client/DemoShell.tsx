@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Route, Routes, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as demoApi from "../api/demoApi";
 import type { DemoRecord } from "../types";
@@ -8,6 +8,7 @@ import { ExpiredNotice } from "./ExpiredNotice";
 import { useCountdown } from "../hooks/useCountdown";
 import { OnboardingWizard } from "./onboarding/OnboardingWizard";
 import { ClientDashboard } from "./dashboard/ClientDashboard";
+import { PlannerPage } from "./planner/PlannerPage";
 import { Footer } from "../components/Footer";
 
 // The single place expiry logic lives (plan doc, section E). Fetches
@@ -67,7 +68,10 @@ export function DemoShell() {
         <>
           <CountdownBadge expiresAt={demo.expiresAt} />
           {demo.onboardingComplete ? (
-            <ClientDashboard demo={demo} onUpdated={handleUpdated} />
+            <Routes>
+              <Route index element={<ClientDashboard demo={demo} onUpdated={handleUpdated} />} />
+              <Route path="planner" element={<PlannerPage demo={demo} />} />
+            </Routes>
           ) : (
             <OnboardingWizard demo={demo} onComplete={handleUpdated} />
           )}

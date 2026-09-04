@@ -41,13 +41,14 @@ demoRoutes.get("/:id/logo", requireDemoExists, async (c) => {
 });
 
 // POST /api/demo/:id/onboarding — always allowed regardless of mode; this
-// is first-run setup, not "programming/budget editing" (spec 4).
+// is first-run setup, not "programming/budget editing" (spec 4). Mode is
+// no longer client-choosable here (self-service is closed beta) — every
+// demo starts and stays "managed" until admin flips it.
 demoRoutes.post("/:id/onboarding", requireDemoExists, requireNotExpired, async (c) => {
   const demo = c.get("demo");
   const body = await c.req.json<{
     event?: Partial<DemoRecord["event"]>;
     paymentPolicy?: Partial<DemoRecord["paymentPolicy"]>;
-    mode?: DemoRecord["mode"];
   }>();
 
   const updated: DemoRecord = {
@@ -56,11 +57,6 @@ demoRoutes.post("/:id/onboarding", requireDemoExists, requireNotExpired, async (
     paymentPolicy: { ...demo.paymentPolicy, ...body.paymentPolicy },
     onboardingComplete: true,
   };
-  if (body.mode) {
-    updated.mode = body.mode;
-    updated.modeSetBy = "client";
-    updated.modeUpdatedAt = Date.now();
-  }
 
   await putDemo(c.env, updated);
   await upsertIndexEntry(c.env, updated);
@@ -86,25 +82,11 @@ demoRoutes.patch("/:id/payment-policy", requireDemoExists, requireNotExpired, as
   return c.json(sanitizeDemo(updated));
 });
 
-// PATCH /api/demo/:id/mode — the client self-toggle. Always allowed in
-// both directions; this IS the feature (spec: client can flip managed <->
-// self-service themselves, not just once at onboarding).
-demoRoutes.patch("/:id/mode", requireDemoExists, requireNotExpired, async (c) => {
-  const demo = c.get("demo");
-  const body = await c.req.json<{ mode: DemoRecord["mode"] }>();
-  if (body.mode !== "managed" && body.mode !== "self-service") {
-    return c.json({ error: "invalid_mode" }, 400);
-  }
-  const updated: DemoRecord = {
-    ...demo,
-    mode: body.mode,
-    modeSetBy: "client",
-    modeUpdatedAt: Date.now(),
-  };
-  await putDemo(c.env, updated);
-  await upsertIndexEntry(c.env, updated);
-  return c.json(sanitizeDemo(updated));
-});
+// Self-service used to be a client self-toggle (PATCH /:id/mode). It's
+// now closed beta (Mario, Sept 2026): clients see the option exists but
+// can no longer flip it themselves, even via a direct API call — only
+// admin/:id/mode can change it now. No client-facing route exists here
+// by design, same pattern as invoices below.
 
 // GET /api/demo/:id/invoices — read-only in both modes. Invoices are
 // admin/managed-team-write-only (see plan doc's flagged assumption);
@@ -126,9 +108,11 @@ demoRoutes.post(
     const body = await c.req.json<Partial<ProgrammingEntry>>();
     const entry: ProgrammingEntry = {
       id: generateItemId(),
-      rosterArtistId: body.rosterArtistId ?? null,
+      rosterCreativeId: body.rosterCreativeId ?? null,
       name: body.name ?? "Untitled",
-      category: body.category ?? "",
+      creativeField: body.creativeField ?? "",
+      creativeService: body.creativeService ?? "",
+      locationId: body.locationId ?? null,
       priceQuoted: body.priceQuoted ?? 0,
       currency: body.currency ?? demo.budget.currency,
       date: body.date ?? null,

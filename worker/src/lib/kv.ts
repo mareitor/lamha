@@ -1,5 +1,5 @@
 import type { DemoIndexEntry, DemoRecord, Env } from "../types";
-import { generateDemoId } from "./ids";
+import { generateDemoId, generateItemId } from "./ids";
 
 const DEMO_PREFIX = "demo:";
 const INDEX_KEY = "demos:index";
@@ -104,6 +104,38 @@ interface CreateDemoInput {
   companyDisplayName?: string;
 }
 
+// Seeded onto every new demo so Locations isn't an empty tab on day
+// one — generic enough to suit most Riyadh-area engagements, fully
+// editable/replaceable per demo from the admin console afterwards.
+function defaultLocations(): DemoRecord["locations"] {
+  return [
+    {
+      id: generateItemId(),
+      name: "KAFD Plaza",
+      formats: ["Outdoor", "Plaza"],
+      whyItWorks: "High-footfall business district plaza — strong for opening-week visibility.",
+    },
+    {
+      id: generateItemId(),
+      name: "Riyadh Front",
+      formats: ["Outdoor", "Waterfront"],
+      whyItWorks: "Evening/weekend crowds, wide open sightlines — good for large-format or light work.",
+    },
+    {
+      id: generateItemId(),
+      name: "U Walk",
+      formats: ["Outdoor", "Retail promenade"],
+      whyItWorks: "Retail foot traffic all day — good fit for shorter, high-turnover activations.",
+    },
+    {
+      id: generateItemId(),
+      name: "Salam Park",
+      formats: ["Outdoor", "Park"],
+      whyItWorks: "Family-oriented weekend crowds — a natural home for interactive or live-performance acts.",
+    },
+  ];
+}
+
 export async function createDemo(env: Env, input: CreateDemoInput): Promise<DemoRecord> {
   // Collision check against the index (astronomically unlikely at this
   // scale, but cheap since the index is already being read for create).
@@ -116,7 +148,7 @@ export async function createDemo(env: Env, input: CreateDemoInput): Promise<Demo
   const now = Date.now();
   const demo: DemoRecord = {
     id,
-    schemaVersion: 1,
+    schemaVersion: 2,
     companyName: input.companyName,
     createdAt: now,
     expiresAt: now + DEMO_TTL_MS,
@@ -151,6 +183,7 @@ export async function createDemo(env: Env, input: CreateDemoInput): Promise<Demo
       billingAddress: "",
     },
     programming: [],
+    locations: defaultLocations(),
     budget: {
       totalBudget: null,
       currency: "SAR",

@@ -46,6 +46,6 @@ Point `demo.marvelandjuicy.com` at the Netlify site (Netlify custom domain + Clo
 
 Admin console lives at `/admin` (password-gated). "+ New Demo" → upload a logo, type a company name, hit Generate → get a shareable `/[id]` link for that prospect. Everything else (onboarding, programming, invoices, mode) happens per-demo from there.
 
-## Updating the fictitious artist roster
+## Updating the fictitious creative roster
 
-Edit `frontend/src/data/artistRoster.json` directly and redeploy the frontend — it's static, shared across all demos, not editable from the admin UI in v1 (see plan doc's open items).
+Edit `frontend/src/data/creativeRoster.json` directly and redeploy the frontend — it's static, shared across all demos, not editable from the admin UI in v1 (see plan doc's open items).

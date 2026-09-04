@@ -33,11 +33,21 @@ export interface PaymentPolicy {
   billingAddress: string;
 }
 
+// A reusable venue profile for the season — the Planner's Locations tab.
+export interface Location {
+  id: string;
+  name: string;
+  formats: string[];
+  whyItWorks: string;
+}
+
 export interface ProgrammingEntry {
   id: string;
-  rosterArtistId: string | null;
+  rosterCreativeId: string | null;
   name: string;
-  category: string;
+  creativeField: string;
+  creativeService: string;
+  locationId: string | null;
   priceQuoted: number;
   currency: string;
   date: string | null;
@@ -67,7 +77,7 @@ export interface InvoiceEntry {
 // Client-facing sanitized shape (what GET /api/demo/:id returns).
 export interface DemoRecord {
   id: string;
-  schemaVersion: 1;
+  schemaVersion: 2;
   companyName: string;
   createdAt: number;
   expiresAt: number;
@@ -80,6 +90,7 @@ export interface DemoRecord {
   event: EventSpecs;
   paymentPolicy: PaymentPolicy;
   programming: ProgrammingEntry[];
+  locations: Location[];
   budget: Budget;
   invoices: InvoiceEntry[];
 }
@@ -93,10 +104,11 @@ export interface DemoIndexEntry {
   status: DemoStatus;
 }
 
-export interface RosterArtist {
+export interface RosterCreative {
   id: string;
   name: string;
-  category: string;
+  creativeField: string;
+  creativeService: string;
   bioBlurb: string;
   priceRangeMin: number;
   priceRangeMax: number;

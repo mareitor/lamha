@@ -58,7 +58,7 @@ export function InvoicesTab({ demo, password, onSaved }: Props) {
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <label>Label</label>
-            <input placeholder="e.g. Deposit — Artist Roster A" value={label} onChange={(e) => setLabel(e.target.value)} />
+            <input placeholder="e.g. Deposit — Creative Roster A" value={label} onChange={(e) => setLabel(e.target.value)} />
           </div>
           <div style={{ width: 140 }}>
             <label>Amount</label>

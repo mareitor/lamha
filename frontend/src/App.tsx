@@ -40,8 +40,9 @@ export function App() {
             }
           />
 
-          {/* Every other path is treated as a demo ID. */}
-          <Route path="/:demoId" element={<DemoShell />} />
+          {/* Every other path is treated as a demo ID; DemoShell owns the
+              nested /planner route itself once the demo is loaded. */}
+          <Route path="/:demoId/*" element={<DemoShell />} />
         </Routes>
       </BrowserRouter>
     </AdminAuthProvider>

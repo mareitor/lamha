@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as demoApi from "../../api/demoApi";
-import type { DemoRecord, DemoMode, EventSpecs, PaymentPolicy } from "../../types";
+import type { DemoRecord, EventSpecs, PaymentPolicy } from "../../types";
 
 interface Props {
   demo: DemoRecord;
@@ -13,13 +13,12 @@ export function OnboardingWizard({ demo, onComplete }: Props) {
   const [step, setStep] = useState<Step>("event");
   const [event, setEvent] = useState<EventSpecs>(demo.event);
   const [paymentPolicy, setPaymentPolicy] = useState<PaymentPolicy>(demo.paymentPolicy);
-  const [mode, setMode] = useState<DemoMode>(demo.mode);
   const [submitting, setSubmitting] = useState(false);
 
   async function finish() {
     setSubmitting(true);
     try {
-      const updated = await demoApi.submitOnboarding(demo.id, { event, paymentPolicy, mode });
+      const updated = await demoApi.submitOnboarding(demo.id, { event, paymentPolicy });
       onComplete(updated);
     } finally {
       setSubmitting(false);
@@ -141,17 +140,44 @@ export function OnboardingWizard({ demo, onComplete }: Props) {
           <h3 style={{ marginTop: 0 }}>How would you like to work with us?</h3>
           <div style={{ display: "grid", gap: 12 }}>
             <ModeOption
-              selected={mode === "managed"}
+              selected
               title="Fully managed"
-              description="We handle your artist programming, budget, and invoicing for you. You get a live, read-only view."
-              onSelect={() => setMode("managed")}
+              description="We handle your creative programming, budget, and invoicing for you. You get a live, read-only view."
             />
-            <ModeOption
-              selected={mode === "self-service"}
-              title="Self-service"
-              description="You edit your own artists, programming, and budget directly. You can switch back to fully managed anytime."
-              onSelect={() => setMode("self-service")}
-            />
+            <div
+              style={{
+                textAlign: "left",
+                padding: 16,
+                borderRadius: 10,
+                border: "1.5px solid var(--color-pill-bg)",
+                opacity: 0.6,
+                cursor: "not-allowed",
+              }}
+              title="Self-service is in closed beta — reach out to our team to enable it."
+            >
+              <strong style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                Self-service
+                <span
+                  style={{
+                    fontSize: "0.62rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    color: "var(--color-primary)",
+                    opacity: 0.6,
+                    border: "1px solid var(--color-primary)",
+                    borderRadius: 100,
+                    padding: "2px 7px",
+                  }}
+                >
+                  Closed beta
+                </span>
+              </strong>
+              <span style={{ fontSize: "0.85rem", fontWeight: 400, opacity: 0.9 }}>
+                Edit your own creatives, programming, and budget directly. Not open yet — talk to your Basa
+                Studio contact if you'd like early access.
+              </span>
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
@@ -172,26 +198,30 @@ function stepIndex(s: Step): number {
   return ["event", "payment", "mode"].indexOf(s);
 }
 
+// The only real (selected, non-interactive) option now that self-service
+// is closed beta — rendered as a static highlighted block rather than a
+// button since there's nothing left to toggle to.
 function ModeOption({
   selected,
   title,
   description,
-  onSelect,
 }: {
   selected: boolean;
   title: string;
   description: string;
-  onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={selected ? "" : "btn-secondary"}
-      style={{ textAlign: "left", padding: 16, display: "block", width: "100%" }}
+    <div
+      style={{
+        textAlign: "left",
+        padding: 16,
+        borderRadius: 10,
+        border: `1.5px solid var(${selected ? "--color-accent" : "--color-pill-bg"})`,
+        background: selected ? "var(--accent-tint, var(--color-pill-bg))" : "transparent",
+      }}
     >
       <strong style={{ display: "block", marginBottom: 4 }}>{title}</strong>
       <span style={{ fontSize: "0.85rem", fontWeight: 400, opacity: 0.9 }}>{description}</span>
-    </button>
+    </div>
   );
 }

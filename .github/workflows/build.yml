@@ -1,0 +1,38 @@
+name: Build & typecheck
+
+# Runs on GitHub's own runners — this is the real verification pass that
+# couldn't be done inside the Claude sandbox this code was written in
+# (that sandbox has no network access to the npm registry). Push to a
+# branch or open a PR and check the Actions tab for pass/fail.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run build
+
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run typecheck

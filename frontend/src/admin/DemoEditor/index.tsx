@@ -7,14 +7,16 @@ import type { DemoRecord } from "../../types";
 import { AdminLayout } from "../AdminLayout";
 import { ProgrammingTab } from "./ProgrammingTab";
 import { InvoicesTab } from "./InvoicesTab";
+import { LocationsTab } from "./LocationsTab";
 
-type Tab = "branding" | "event" | "payment" | "programming" | "invoices" | "mode" | "danger";
+type Tab = "branding" | "event" | "payment" | "programming" | "locations" | "invoices" | "mode" | "danger";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "branding", label: "Branding" },
   { key: "event", label: "Event" },
   { key: "payment", label: "Payment policy" },
   { key: "programming", label: "Programming" },
+  { key: "locations", label: "Locations" },
   { key: "invoices", label: "Invoices" },
   { key: "mode", label: "Mode" },
   { key: "danger", label: "Danger zone" },
@@ -71,6 +73,7 @@ export function DemoEditor() {
       {tab === "event" && <EventTab demo={demo} password={password!} onSaved={setDemo} />}
       {tab === "payment" && <PaymentTab demo={demo} password={password!} onSaved={setDemo} />}
       {tab === "programming" && <ProgrammingTab demo={demo} password={password!} onSaved={setDemo} />}
+      {tab === "locations" && <LocationsTab demo={demo} password={password!} onSaved={setDemo} />}
       {tab === "invoices" && <InvoicesTab demo={demo} password={password!} onSaved={setDemo} />}
       {tab === "mode" && <ModeTab demo={demo} password={password!} onSaved={setDemo} />}
       {tab === "danger" && <DangerZoneTab demo={demo} password={password!} />}

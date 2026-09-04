@@ -1,10 +1,11 @@
 import { apiRequest } from "./client";
-import type { DemoRecord, DemoMode, EventSpecs, PaymentPolicy, ProgrammingEntry, Budget } from "../types";
+import type { DemoRecord, EventSpecs, PaymentPolicy, ProgrammingEntry, Budget } from "../types";
 
 // Client-scoped API — every call is authorized purely by the demo ID in
 // the URL (see plan doc: unguessable-ID-as-auth). Self-service-only
 // routes are still enforced server-side even though the UI also hides
-// them in managed mode.
+// them in managed mode. Mode itself has no client-facing route at all —
+// self-service is closed beta, admin-only (see adminApi.setMode).
 
 export function getDemo(demoId: string): Promise<DemoRecord> {
   return apiRequest(`/api/demo/${demoId}`);
@@ -12,7 +13,7 @@ export function getDemo(demoId: string): Promise<DemoRecord> {
 
 export function submitOnboarding(
   demoId: string,
-  data: { event: Partial<EventSpecs>; paymentPolicy: Partial<PaymentPolicy>; mode: DemoMode },
+  data: { event: Partial<EventSpecs>; paymentPolicy: Partial<PaymentPolicy> },
 ): Promise<DemoRecord> {
   return apiRequest(`/api/demo/${demoId}/onboarding`, { method: "POST", body: data });
 }
@@ -23,10 +24,6 @@ export function updateEvent(demoId: string, data: Partial<EventSpecs>): Promise<
 
 export function updatePaymentPolicy(demoId: string, data: Partial<PaymentPolicy>): Promise<DemoRecord> {
   return apiRequest(`/api/demo/${demoId}/payment-policy`, { method: "PATCH", body: data });
-}
-
-export function setMode(demoId: string, mode: DemoMode): Promise<DemoRecord> {
-  return apiRequest(`/api/demo/${demoId}/mode`, { method: "PATCH", body: { mode } });
 }
 
 export function getInvoices(demoId: string) {

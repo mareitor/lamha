@@ -1,8 +1,8 @@
 // No photos anywhere in the roster (spec 7) — every avatar is a
 // CSS-generated colored circle with initials, driven entirely by data
-// already in artistRoster.json (colorSeed + initials). No image asset,
+// already in creativeRoster.json (colorSeed + initials). No image asset,
 // no external request, no risk of ever showing a real person's photo.
-export function ArtistAvatar({
+export function CreativeAvatar({
   initials,
   colorSeed,
   size = 40,
@@ -25,6 +25,7 @@ export function ArtistAvatar({
         fontFamily: "var(--font-heading)",
         fontSize: size * 0.4,
         flexShrink: 0,
+        boxShadow: "0 0 0 2px var(--color-surface), 0 0 0 3px var(--brass-tint, rgba(176,141,43,.35))",
       }}
       aria-hidden
     >

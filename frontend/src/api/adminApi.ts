@@ -7,6 +7,7 @@ import type {
   PaymentPolicy,
   ProgrammingEntry,
   InvoiceEntry,
+  Location,
 } from "../types";
 
 // Admin-scoped API — every call requires the shared admin password,
@@ -150,6 +151,36 @@ export function updateInvoice(
 
 export function deleteInvoice(adminPassword: string, id: string, itemId: string): Promise<DemoRecord> {
   return apiRequest(`/api/admin/demos/${id}/invoices/${itemId}`, {
+    method: "DELETE",
+    adminPassword,
+  });
+}
+
+// ---- Locations (Planner's Locations tab — admin-managed, client read-only) ----
+
+export function addLocation(
+  adminPassword: string,
+  id: string,
+  entry: Partial<Location>,
+): Promise<DemoRecord> {
+  return apiRequest(`/api/admin/demos/${id}/locations`, { method: "POST", body: entry, adminPassword });
+}
+
+export function updateLocation(
+  adminPassword: string,
+  id: string,
+  itemId: string,
+  entry: Partial<Location>,
+): Promise<DemoRecord> {
+  return apiRequest(`/api/admin/demos/${id}/locations/${itemId}`, {
+    method: "PATCH",
+    body: entry,
+    adminPassword,
+  });
+}
+
+export function deleteLocation(adminPassword: string, id: string, itemId: string): Promise<DemoRecord> {
+  return apiRequest(`/api/admin/demos/${id}/locations/${itemId}`, {
     method: "DELETE",
     adminPassword,
   });

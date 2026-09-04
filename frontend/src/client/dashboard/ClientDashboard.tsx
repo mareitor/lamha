@@ -1,3 +1,4 @@
+import { Link, useParams } from "react-router-dom";
 import type { DemoRecord } from "../../types";
 import { useTheme } from "../../theme/ThemeProvider";
 import { ModeToggle } from "./ModeToggle";
@@ -13,9 +14,19 @@ export function ClientDashboard({
   onUpdated: (demo: DemoRecord) => void;
 }) {
   const theme = useTheme();
+  const { demoId } = useParams<{ demoId: string }>();
 
   return (
     <div className="container" style={{ paddingTop: 40 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 24 }}>
+        <button style={{ fontSize: "0.82rem" }}>Dashboard</button>
+        <Link to={`/${demoId}/planner`}>
+          <button className="btn-secondary" style={{ fontSize: "0.82rem" }}>
+            Planner
+          </button>
+        </Link>
+      </div>
+
       <header style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
         <img src={theme.logoUrl} alt={theme.companyDisplayName} style={{ height: 40, maxWidth: 160, objectFit: "contain" }} />
         <div>
@@ -29,7 +40,7 @@ export function ClientDashboard({
         </div>
       </header>
 
-      <ModeToggle demo={demo} onUpdated={onUpdated} />
+      <ModeToggle demo={demo} />
       <ProgrammingSection demo={demo} onUpdated={onUpdated} />
       <BudgetSection demo={demo} onUpdated={onUpdated} />
       <InvoicesSection demo={demo} />

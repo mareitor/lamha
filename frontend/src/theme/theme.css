@@ -1,27 +1,63 @@
 /* Design tokens consumed via CSS custom properties written by
    ThemeProvider. Fallback values here match baseTheme.ts so the app
-   isn't unstyled for a flash before the provider's effect runs. */
+   isn't unstyled for a flash before the provider's effect runs.
+
+   Brass (--brass / --brass-tint) is Lamha's own fixed platform accent —
+   ticks, avatar rings, section-tab underlines — kept deliberately
+   separate from --color-accent, which is the per-prospect color and
+   changes every demo. That separation keeps a loud client color from
+   fighting the chrome around it. Matches mockup-preview.html's :root
+   block (the approved design reference), ported here. */
 
 :root {
   --color-background: #f4f1e8;
   --color-surface: #ffffff;
   --color-primary: #2c4741;
+  --color-ink-deep: #14231d;
   --color-footer-bg: #233530;
+  --color-footer-bg-2: #1a2b26;
   --color-pill-bg: #ece6d5;
+  --color-pill-bg-2: #e3dcc6;
   --color-on-dark: #dfe6e2;
   --color-on-dark-muted: #a9beb6;
   --color-accent: #2c4741;
+  --color-line: #dfd7c0;
+
+  --brass: #b08d2b;
+  --brass-tint: #f1e6c6;
+
+  --paid: #3e7a4f;
+  --paid-bg: #dfefe2;
+  --sent: #2c6e8f;
+  --sent-bg: #dce8f0;
+  --overdue: #b23a48;
+  --overdue-bg: #f4dcdf;
+  --draft-bg: #ece6d5;
+
+  /* Creative-field colors — one per field so a client can scan the
+     season by discipline at a glance (calendar chips, legend dots). */
+  --field-visual-arts: #c97b4a;
+  --field-digital-light: #2e4a8f;
+  --field-performance: #6b4e9e;
+  --field-installation: #3c6e3c;
+
   --font-heading: "Fraunces", serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
 
-  --radius-sm: 3px;
+  --radius-sm: 8px;
   --radius-pill: 100px;
+  --r-card: 14px;
+  --r-btn: 9px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 16px;
   --space-4: 24px;
   --space-5: 40px;
   --space-6: 64px;
+
+  --shadow-card: 0 1px 1px rgba(20, 35, 29, 0.05), 0 10px 26px -12px rgba(20, 35, 29, 0.24);
+  --shadow-lift: 0 2px 5px rgba(20, 35, 29, 0.09), 0 16px 34px -14px rgba(20, 35, 29, 0.32);
+  --shadow-frame: 0 1px 2px rgba(20, 35, 29, 0.06), 0 28px 64px -22px rgba(20, 35, 29, 0.38);
 }
 
 * {
@@ -51,6 +87,7 @@ h4 {
   font-weight: 400;
   margin: 0 0 var(--space-3) 0;
   line-height: 1.15;
+  text-wrap: balance;
 }
 
 h1 {
@@ -75,30 +112,39 @@ button,
 .btn {
   font-family: var(--font-body);
   font-size: 0.92rem;
-  font-weight: 500;
+  font-weight: 600;
   border: none;
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-4);
+  border-radius: var(--r-btn);
+  padding: 10px 20px;
   cursor: pointer;
   background: var(--color-accent);
-  color: var(--color-background);
-  transition: opacity 0.15s ease;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 8px 18px -9px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
 button:hover,
 .btn:hover {
-  opacity: 0.88;
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+button:active,
+.btn:active {
+  transform: translateY(0);
 }
 
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .btn-secondary {
   background: transparent;
   color: var(--color-primary);
-  border: 1px solid var(--color-primary);
+  border: 1.5px solid var(--color-primary);
+  box-shadow: none;
 }
 
 input,
@@ -107,11 +153,19 @@ textarea {
   font-family: var(--font-body);
   font-size: 0.95rem;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-pill-bg);
+  border: 1.5px solid var(--color-pill-bg-2);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-primary);
   width: 100%;
+  transition: border-color 0.15s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
 }
 
 label {
@@ -132,21 +186,24 @@ label {
   border-radius: var(--radius-pill);
   padding: 4px 14px;
   font-size: 0.78rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
 .card {
   background: var(--color-surface);
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-card);
   padding: var(--space-4);
-  box-shadow: 0 1px 3px rgba(44, 71, 65, 0.08);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(20, 35, 29, 0.04);
 }
 
 .dark-panel {
-  background: var(--color-footer-bg);
+  background: linear-gradient(180deg, var(--color-footer-bg) 0%, var(--color-footer-bg-2) 100%);
   color: var(--color-on-dark);
+  border-top: 2px solid var(--brass);
+  box-shadow: var(--shadow-card);
 }
 
 .dark-panel .muted {
@@ -157,4 +214,40 @@ label {
   max-width: 960px;
   margin: 0 auto;
   padding: 0 var(--space-4);
+}
+
+/* ---- Planner: stat tiles + calendar — the two spots that broke on a
+   390px viewport when this was checked in the mockup preview (grid
+   items default to min-width:auto and a fixed 7-column grid has no
+   escape hatch), ported here as real CSS since these render from inline
+   styles that a media query can't otherwise reach. ---- */
+.planner-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 26px 0 36px;
+}
+
+.cal-scroll {
+  overflow-x: auto;
+}
+
+@media (max-width: 720px) {
+  .container {
+    padding: 0 var(--space-3);
+  }
+  .planner-stats .card {
+    min-width: 0;
+  }
+  .planner-stats .card > div:first-child {
+    overflow-wrap: break-word;
+  }
+  .cal-grid,
+  .week-grid {
+    min-width: 640px;
+  }
+  .countdown-badge {
+    font-size: 0.7rem;
+    padding: 7px 12px;
+  }
 }

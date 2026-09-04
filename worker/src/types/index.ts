@@ -33,11 +33,23 @@ export interface PaymentPolicy {
   billingAddress: string;
 }
 
+// A reusable venue profile for the season — the Planner's "Locations"
+// tab. Seeded with defaults on demo creation (createDemo below), fully
+// admin-editable afterwards. Referenced by ProgrammingEntry.locationId.
+export interface Location {
+  id: string;
+  name: string;
+  formats: string[]; // e.g. "Indoor", "Outdoor", "Rooftop", "Lobby"
+  whyItWorks: string; // short curatorial note on why this venue suits the season
+}
+
 export interface ProgrammingEntry {
   id: string;
-  rosterArtistId: string | null;
+  rosterCreativeId: string | null;
   name: string;
-  category: string;
+  creativeField: string;
+  creativeService: string;
+  locationId: string | null;
   priceQuoted: number;
   currency: string;
   date: string | null;
@@ -66,7 +78,7 @@ export interface InvoiceEntry {
 
 export interface DemoRecord {
   id: string;
-  schemaVersion: 1;
+  schemaVersion: 2;
 
   companyName: string;
   createdAt: number;
@@ -84,6 +96,7 @@ export interface DemoRecord {
   event: EventSpecs;
   paymentPolicy: PaymentPolicy;
   programming: ProgrammingEntry[];
+  locations: Location[];
   budget: Budget;
   invoices: InvoiceEntry[];
 }

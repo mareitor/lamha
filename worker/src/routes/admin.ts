@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import type { DemoRecord, Env, InvoiceEntry, ProgrammingEntry } from "../types";
+import type { DemoRecord, Env, InvoiceEntry, Location, ProgrammingEntry } from "../types";
 import {
   createDemo,
   deleteDemo,
@@ -181,9 +181,11 @@ adminRoutes.post("/demos/:id/programming", async (c) => {
   const body = await c.req.json<Partial<ProgrammingEntry>>();
   const entry: ProgrammingEntry = {
     id: generateItemId(),
-    rosterArtistId: body.rosterArtistId ?? null,
+    rosterCreativeId: body.rosterCreativeId ?? null,
     name: body.name ?? "Untitled",
-    category: body.category ?? "",
+    creativeField: body.creativeField ?? "",
+    creativeService: body.creativeService ?? "",
+    locationId: body.locationId ?? null,
     priceQuoted: body.priceQuoted ?? 0,
     currency: body.currency ?? demo.budget.currency,
     date: body.date ?? null,
@@ -221,6 +223,58 @@ adminRoutes.delete("/demos/:id/programming/:itemId", async (c) => {
   const updated: DemoRecord = {
     ...demo,
     programming: demo.programming.filter((entry) => entry.id !== itemId),
+  };
+  await putDemo(c.env, updated);
+  return c.json(updated);
+});
+
+// ---- Locations CRUD (admin-managed venue profiles for the Planner's
+// Locations tab — clients see these read-only, in both modes) ----
+
+adminRoutes.post("/demos/:id/locations", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json<Partial<Location>>();
+  const entry: Location = {
+    id: generateItemId(),
+    name: body.name ?? "Untitled location",
+    formats: body.formats ?? [],
+    whyItWorks: body.whyItWorks ?? "",
+  };
+  const updated: DemoRecord = { ...demo, locations: [...demo.locations, entry] };
+  await putDemo(c.env, updated);
+  return c.json(updated);
+});
+
+adminRoutes.patch("/demos/:id/locations/:itemId", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const itemId = c.req.param("itemId");
+  const body = await c.req.json<Partial<Location>>();
+  let found = false;
+  const locations = demo.locations.map((entry) => {
+    if (entry.id !== itemId) return entry;
+    found = true;
+    return { ...entry, ...body, id: entry.id };
+  });
+  if (!found) return c.json({ error: "not_found" }, 404);
+  const updated: DemoRecord = { ...demo, locations };
+  await putDemo(c.env, updated);
+  return c.json(updated);
+});
+
+adminRoutes.delete("/demos/:id/locations/:itemId", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const itemId = c.req.param("itemId");
+  const updated: DemoRecord = {
+    ...demo,
+    locations: demo.locations.filter((entry) => entry.id !== itemId),
+    // Unlink any programming entries pointed at the removed location
+    // rather than leaving a dangling ID around.
+    programming: demo.programming.map((entry) =>
+      entry.locationId === itemId ? { ...entry, locationId: null } : entry,
+    ),
   };
   await putDemo(c.env, updated);
   return c.json(updated);

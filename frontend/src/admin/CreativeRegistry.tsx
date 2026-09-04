@@ -127,6 +127,36 @@ function FieldChip({
   );
 }
 
+// Website/social-media icons — plain hand-drawn SVGs (no icon library in
+// this project) rather than link text, per Mario's ask. currentColor so
+// they pick up whatever color the wrapping <a> is given.
+function IconGlobe() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
+function IconAtSign() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94" />
+    </svg>
+  );
+}
+
+// Registry entries store website/social links as plain text ("basa.com"),
+// not necessarily a full URL — add a protocol so the link actually
+// navigates instead of being treated as relative to the current page.
+function withProtocol(url: string): string {
+  const trimmed = url.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 // A creative service chip: hollow ring marker in its field's hue, so it
 // reads as "the same category, one level down" next to a FieldChip.
 function ServiceChip({
@@ -199,6 +229,7 @@ export function CreativeRegistry() {
   const [showTrash, setShowTrash] = useState(false);
   const [search, setSearch] = useState("");
   const [fieldFilter, setFieldFilter] = useState("");
+  const [duplicateMatch, setDuplicateMatch] = useState<CreativeRegistryEntry | null>(null);
 
   const load = useCallback(async () => {
     if (!password) return;
@@ -217,6 +248,7 @@ export function CreativeRegistry() {
   function startAdd() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setDuplicateMatch(null);
     setShowForm(true);
   }
 
@@ -237,6 +269,7 @@ export function CreativeRegistry() {
       standardServicesPriceRange: entry.standardServicesPriceRange,
       whatsappForBusiness: entry.whatsappForBusiness,
     });
+    setDuplicateMatch(null);
     setShowForm(true);
   }
 
@@ -266,7 +299,23 @@ export function CreativeRegistry() {
     }));
   }
 
-  async function save() {
+  // Email is the natural dedupe key here — two different people are
+  // vanishingly unlikely to share one, while the same person/studio
+  // easily gets re-added by accident (or, once real intake-form imports
+  // start, re-submits the form). Warn instead of silently blocking: a
+  // real duplicate name with a different email (e.g. two different
+  // "Studio X"s) is legitimate and shouldn't be prevented.
+  function findDuplicateByEmail(email: string): CreativeRegistryEntry | null {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !creatives) return null;
+    return (
+      creatives.find(
+        (e) => e.status !== "archived" && e.id !== editingId && e.email.trim().toLowerCase() === trimmed,
+      ) ?? null
+    );
+  }
+
+  async function performSave() {
     if (!password || !form.displayName.trim()) return;
     setSaving(true);
     try {
@@ -277,13 +326,27 @@ export function CreativeRegistry() {
       setShowForm(false);
       setForm(EMPTY_FORM);
       setEditingId(null);
+      setDuplicateMatch(null);
     } finally {
       setSaving(false);
     }
   }
 
-  // Soft delete — moves the entry to the trash. Recoverable via restore()
-  // until someone explicitly empties the trash with permanentlyDelete().
+  function save() {
+    const dup = findDuplicateByEmail(form.email);
+    if (dup) {
+      setDuplicateMatch(dup);
+      return;
+    }
+    performSave();
+  }
+
+  // Soft delete — moves the entry to the trash. Nothing is ever erased
+  // from KV through the app: restore() is the only way back, and there
+  // is deliberately no "permanent delete" action anywhere in this UI
+  // (Mario, Sept 2026: didn't want any in-app path that could actually
+  // erase a record). The worker route still exists for a possible future
+  // "empty trash" feature, but nothing here calls it.
   async function remove(itemId: string) {
     if (!password) return;
     const { creatives } = await adminApi.deleteCreative(password, itemId);
@@ -295,13 +358,6 @@ export function CreativeRegistry() {
     if (!password) return;
     const { creatives } = await adminApi.restoreCreative(password, itemId);
     setCreatives(creatives);
-  }
-
-  async function permanentlyDelete(itemId: string) {
-    if (!password) return;
-    const { creatives } = await adminApi.permanentlyDeleteCreative(password, itemId);
-    setCreatives(creatives);
-    setConfirmDeleteId(null);
   }
 
   function toggleTrash() {
@@ -344,7 +400,7 @@ export function CreativeRegistry() {
       </div>
       <p style={{ fontSize: "0.85rem", opacity: 0.75, marginTop: -12, marginBottom: 24 }}>
         {showTrash
-          ? "Removed creatives — restore one back to the registry, or delete it for good."
+          ? "Removed creatives — nothing here is ever erased. Restore one back to the registry whenever you're ready."
           : "Your real supplier database — shared across every demo, not scoped to one. Contact info, price ranges, and technical requirements are admin-only and never shown to a client."}
       </p>
 
@@ -364,7 +420,13 @@ export function CreativeRegistry() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 12 }}>
             <div>
               <label>Email</label>
-              <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <input
+                value={form.email}
+                onChange={(e) => {
+                  setForm({ ...form, email: e.target.value });
+                  setDuplicateMatch(null);
+                }}
+              />
             </div>
             <div>
               <label>Phone</label>
@@ -502,6 +564,37 @@ export function CreativeRegistry() {
             </div>
           </div>
 
+          {duplicateMatch && (
+            <div
+              style={{
+                marginTop: 20,
+                padding: 12,
+                borderRadius: 8,
+                background: "var(--overdue-bg)",
+                border: "1px solid var(--overdue)",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "0.85rem" }}>
+                A creative with this email is already in the registry: <strong>{duplicateMatch.displayName}</strong>.
+              </p>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    const existing = duplicateMatch;
+                    setDuplicateMatch(null);
+                    startEdit(existing);
+                  }}
+                >
+                  Edit that one instead
+                </button>
+                <button className="btn-secondary" onClick={performSave}>
+                  Add anyway — it's a different person
+                </button>
+              </div>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
             <button onClick={save} disabled={saving || !form.displayName.trim()}>
               {saving ? "Saving…" : editingId ? "Save changes" : "Add creative"}
@@ -512,6 +605,7 @@ export function CreativeRegistry() {
                 setShowForm(false);
                 setForm(EMPTY_FORM);
                 setEditingId(null);
+                setDuplicateMatch(null);
               }}
             >
               Cancel
@@ -520,7 +614,7 @@ export function CreativeRegistry() {
         </div>
       )}
 
-      {creatives && creatives.length > 0 && (
+      {!showForm && creatives && creatives.length > 0 && (
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
           <input
             placeholder="Search by name, contact, field, or service…"
@@ -548,8 +642,8 @@ export function CreativeRegistry() {
         </div>
       )}
 
-      {visibleCreatives === null && !error && <p>Loading…</p>}
-      {visibleCreatives && visibleCreatives.length === 0 && !showForm && (
+      {!showForm && visibleCreatives === null && !error && <p>Loading…</p>}
+      {!showForm && visibleCreatives && visibleCreatives.length === 0 && (
         <p>
           {showTrash
             ? "Trash is empty."
@@ -559,7 +653,7 @@ export function CreativeRegistry() {
         </p>
       )}
 
-      {visibleCreatives && visibleCreatives.length > 0 && (
+      {!showForm && visibleCreatives && visibleCreatives.length > 0 && (
         <div style={{ display: "grid", gap: 12 }}>
           {visibleCreatives.map((entry) => {
             const waDigits =
@@ -635,31 +729,38 @@ export function CreativeRegistry() {
                         ✆ WhatsApp
                       </a>
                     )}
+                    {entry.website && (
+                      <a
+                        href={withProtocol(entry.website)}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Website"
+                        aria-label="Website"
+                        style={{ display: "inline-flex", alignItems: "center", opacity: 0.75 }}
+                      >
+                        <IconGlobe />
+                      </a>
+                    )}
+                    {entry.socialMediaLink && (
+                      <a
+                        href={withProtocol(entry.socialMediaLink)}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Social media"
+                        aria-label="Social media"
+                        style={{ display: "inline-flex", alignItems: "center", opacity: 0.75 }}
+                      >
+                        <IconAtSign />
+                      </a>
+                    )}
                   </div>
                 </div>
 
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
                   {showTrash ? (
-                    confirming ? (
-                      <>
-                        <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>Delete forever?</span>
-                        <button onClick={() => permanentlyDelete(entry.id)} style={{ background: "var(--overdue)" }}>
-                          Yes, delete
-                        </button>
-                        <button className="btn-secondary" onClick={() => setConfirmDeleteId(null)}>
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="btn-secondary" onClick={() => restore(entry.id)}>
-                          Restore
-                        </button>
-                        <button className="btn-secondary" onClick={() => setConfirmDeleteId(entry.id)}>
-                          Delete forever
-                        </button>
-                      </>
-                    )
+                    <button className="btn-secondary" onClick={() => restore(entry.id)}>
+                      Restore
+                    </button>
                   ) : confirming ? (
                     <>
                       <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>Remove?</span>

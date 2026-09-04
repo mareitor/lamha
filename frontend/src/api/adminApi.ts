@@ -209,8 +209,10 @@ export function updateCreative(
   return apiRequest(`/api/admin/creatives/${itemId}`, { method: "PATCH", body: entry, adminPassword });
 }
 
-// Soft delete — moves the entry to the trash (status: "archived");
-// recoverable. See restoreCreative / permanentlyDeleteCreative below.
+// Soft delete — moves the entry to the trash (status: "archived").
+// Nothing calls a hard-delete route from this app (Mario, Sept 2026:
+// no in-app path should ever be able to actually erase a registry
+// record) — restoreCreative below is the only way back.
 export function deleteCreative(
   adminPassword: string,
   itemId: string,
@@ -229,11 +231,9 @@ export function restoreCreative(
   });
 }
 
-// Irreversible — only offered from the Trash view on an already-archived
-// entry.
-export function permanentlyDeleteCreative(
-  adminPassword: string,
-  itemId: string,
-): Promise<{ creatives: CreativeRegistryEntry[] }> {
-  return apiRequest(`/api/admin/creatives/${itemId}/permanent`, { method: "DELETE", adminPassword });
-}
+// Irreversible, and deliberately not called anywhere in the app (see
+// deleteCreative above). The worker route still exists in case a real
+// "empty trash" need comes up later, but nothing in the UI reaches it —
+// left here, unused, only as a note of that boundary rather than a
+// dead export to trip over.
+// permanentlyDeleteCreative intentionally removed from the client API.

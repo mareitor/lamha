@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAdminAuth } from "./AdminAuthContext";
 import * as adminApi from "../api/adminApi";
 import { AdminLayout } from "./AdminLayout";
-import { CREATIVE_FIELDS, CREATIVE_SERVICES } from "../data/creativeTaxonomy";
+import { CREATIVE_FIELDS, CREATIVE_TAXONOMY, servicesForFields } from "../data/creativeTaxonomy";
 import type { CreativeRegistryEntry } from "../types";
 
 // Account-wide real supplier/creative database (this is step 2 of the
@@ -95,12 +95,20 @@ export function CreativeRegistry() {
   }
 
   function toggleField(field: string) {
-    setForm((f) => ({
-      ...f,
-      creativeFields: f.creativeFields.includes(field)
+    setForm((f) => {
+      const nowSelected = f.creativeFields.includes(field)
         ? f.creativeFields.filter((x) => x !== field)
-        : [...f.creativeFields, field],
-    }));
+        : [...f.creativeFields, field];
+      // Match the real intake form: unchecking a field hides its services,
+      // so drop any previously-picked service that no longer belongs to
+      // any currently-selected field.
+      const stillValidServices = new Set(nowSelected.flatMap((fld) => CREATIVE_TAXONOMY[fld] ?? []));
+      return {
+        ...f,
+        creativeFields: nowSelected,
+        creativeServices: f.creativeServices.filter((s) => stillValidServices.has(s)),
+      };
+    });
   }
 
   function toggleService(service: string) {
@@ -201,27 +209,42 @@ export function CreativeRegistry() {
             ))}
           </div>
           <label>Creative service (select at least one)</label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {CREATIVE_SERVICES.map((service) => (
-              <label
-                key={service}
-                className="pill"
-                style={{
-                  cursor: "pointer",
-                  background: form.creativeServices.includes(service) ? "var(--color-accent)" : "var(--color-pill-bg)",
-                  color: form.creativeServices.includes(service) ? "var(--color-on-dark)" : "inherit",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={form.creativeServices.includes(service)}
-                  onChange={() => toggleService(service)}
-                  style={{ marginRight: 6 }}
-                />
-                {service}
-              </label>
-            ))}
-          </div>
+          {form.creativeFields.length === 0 ? (
+            <p style={{ fontSize: "0.8rem", opacity: 0.6, marginTop: 4 }}>
+              Select a creative field above to see its services.
+            </p>
+          ) : (
+            servicesForFields(form.creativeFields).map(({ field, services }) => (
+              <div key={field} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 600, opacity: 0.6, margin: "8px 0 6px" }}>
+                  {field.toUpperCase()}
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {services.map((service) => (
+                    <label
+                      key={service}
+                      className="pill"
+                      style={{
+                        cursor: "pointer",
+                        background: form.creativeServices.includes(service)
+                          ? "var(--color-accent)"
+                          : "var(--color-pill-bg)",
+                        color: form.creativeServices.includes(service) ? "var(--color-on-dark)" : "inherit",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.creativeServices.includes(service)}
+                        onChange={() => toggleService(service)}
+                        style={{ marginRight: 6 }}
+                      />
+                      {service}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
 
           <h4 style={{ marginTop: 24, marginBottom: 8 }}>Work details</h4>
           <label>Tell us more about your work</label>

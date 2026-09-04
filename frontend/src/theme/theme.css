@@ -216,6 +216,25 @@ label {
   padding: 0 var(--space-4);
 }
 
+/* Collapsible groups (Creative Registry's per-field service lists) —
+   plain <details>/<summary>, just stripped of the default marker and
+   given a small rotating chevron instead. */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details > summary::after {
+  content: "\25B8";
+  margin-left: auto;
+  opacity: 0.5;
+  font-size: 0.7em;
+}
+details[open] > summary::after {
+  content: "\25BE";
+}
+
 /* ---- Planner: stat tiles + calendar — the two spots that broke on a
    390px viewport when this was checked in the mockup preview (grid
    items default to min-width:auto and a fixed 7-column grid has no

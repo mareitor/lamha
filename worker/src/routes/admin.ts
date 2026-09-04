@@ -355,6 +355,7 @@ adminRoutes.post("/creatives", async (c) => {
   const entry: CreativeRegistryEntry = {
     id: generateItemId(),
     status: body.status ?? "active",
+    archivedAt: null,
     displayName: body.displayName ?? "Untitled",
     creativeFields: body.creativeFields ?? [],
     creativeServices: body.creativeServices ?? [],
@@ -384,14 +385,36 @@ adminRoutes.patch("/creatives/:itemId", async (c) => {
   const updated = registry.map((entry) => {
     if (entry.id !== itemId) return entry;
     found = true;
-    return { ...entry, ...body, id: entry.id, updatedAt: Date.now() };
+    // Restoring from the trash (status moving away from "archived") clears
+    // archivedAt; anything else leaves it alone.
+    const archivedAt = body.status && body.status !== "archived" ? null : entry.archivedAt;
+    return { ...entry, ...body, id: entry.id, archivedAt, updatedAt: Date.now() };
   });
   if (!found) return c.json({ error: "not_found" }, 404);
   await putCreativeRegistry(c.env, updated);
   return c.json({ creatives: updated });
 });
 
+// Soft delete: "Remove" from the registry list moves an entry to the
+// trash (status: "archived") rather than erasing it, so an accidental
+// or wrong removal is recoverable from the admin UI's Trash view.
 adminRoutes.delete("/creatives/:itemId", async (c) => {
+  const itemId = c.req.param("itemId");
+  const registry = await getCreativeRegistry(c.env);
+  let found = false;
+  const updated = registry.map((entry) => {
+    if (entry.id !== itemId) return entry;
+    found = true;
+    return { ...entry, status: "archived" as const, archivedAt: Date.now() };
+  });
+  if (!found) return c.json({ error: "not_found" }, 404);
+  await putCreativeRegistry(c.env, updated);
+  return c.json({ creatives: updated });
+});
+
+// Permanent delete: only reachable from the Trash view, for actually
+// erasing an already-archived entry from KV. Irreversible.
+adminRoutes.delete("/creatives/:itemId/permanent", async (c) => {
   const itemId = c.req.param("itemId");
   const registry = await getCreativeRegistry(c.env);
   const updated = registry.filter((entry) => entry.id !== itemId);

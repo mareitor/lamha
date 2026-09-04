@@ -107,11 +107,14 @@ export interface DemoIndexEntry {
 // The real supplier/creative database — account-wide, not per-demo.
 // Admin-only (no client route reads this today). See worker's mirror of
 // this type for the internal-vs-client-safe field split.
-export type CreativeRegistryStatus = "active" | "inactive";
+// "archived" = soft-deleted — hidden from the default list, kept and
+// restorable from the admin UI's Trash view.
+export type CreativeRegistryStatus = "active" | "inactive" | "archived";
 
 export interface CreativeRegistryEntry {
   id: string;
   status: CreativeRegistryStatus;
+  archivedAt: number | null;
 
   displayName: string;
   creativeFields: string[];

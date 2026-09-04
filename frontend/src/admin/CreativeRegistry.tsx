@@ -1,8 +1,14 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useAdminAuth } from "./AdminAuthContext";
 import * as adminApi from "../api/adminApi";
 import { AdminLayout } from "./AdminLayout";
-import { CREATIVE_FIELDS, CREATIVE_TAXONOMY, servicesForFields } from "../data/creativeTaxonomy";
+import {
+  CREATIVE_FIELDS,
+  CREATIVE_TAXONOMY,
+  servicesForFields,
+  fieldForService,
+  fieldAccent,
+} from "../data/creativeTaxonomy";
 import type { CreativeRegistryEntry } from "../types";
 
 // Account-wide real supplier/creative database (this is step 2 of the
@@ -45,6 +51,142 @@ const EMPTY_FORM: FormState = {
   whatsappForBusiness: null,
 };
 
+// Visually hidden but still focusable/clickable — keeps the underlying
+// checkbox in the tab order and accessible to screen readers while the
+// chip itself (colored dot/ring + tinted background) carries the visible
+// on/off state. Not display:none, which would drop it from the a11y
+// tree entirely.
+const srOnlyCheckbox = {
+  position: "absolute" as const,
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden" as const,
+  clip: "rect(0,0,0,0)",
+  whiteSpace: "nowrap" as const,
+  border: 0,
+};
+
+// A creative field chip: filled dot marker, one hue per field (see
+// fieldAccent). Interactive (checkbox picker) when onToggle is passed;
+// otherwise a read-only tag, e.g. on a registry card.
+function FieldChip({
+  field,
+  selected,
+  onToggle,
+}: {
+  field: string;
+  selected: boolean;
+  onToggle?: () => void;
+}) {
+  const a = fieldAccent(field);
+  const dot = (
+    <span style={{ width: 7, height: 7, borderRadius: "50%", background: a.dot, flexShrink: 0 }} />
+  );
+  if (!onToggle) {
+    return (
+      <span
+        className="pill"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "3px 10px",
+          fontSize: "0.68rem",
+          background: a.bgSelected,
+          color: a.fg,
+          border: `1px solid ${a.border}`,
+        }}
+      >
+        {dot}
+        {field}
+      </span>
+    );
+  }
+  return (
+    <label
+      className="pill"
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        padding: "3px 10px",
+        fontSize: "0.7rem",
+        cursor: "pointer",
+        background: selected ? a.bgSelected : "var(--color-pill-bg)",
+        color: selected ? a.fg : "inherit",
+        border: `1px solid ${selected ? a.border : "transparent"}`,
+      }}
+    >
+      <input type="checkbox" checked={selected} onChange={onToggle} style={srOnlyCheckbox} />
+      {dot}
+      {field}
+    </label>
+  );
+}
+
+// A creative service chip: hollow ring marker in its field's hue, so it
+// reads as "the same category, one level down" next to a FieldChip.
+function ServiceChip({
+  service,
+  field,
+  selected,
+  onToggle,
+}: {
+  service: string;
+  field?: string;
+  selected: boolean;
+  onToggle?: () => void;
+}) {
+  const a = fieldAccent(field ?? service);
+  const ring = (
+    <span
+      style={{ width: 7, height: 7, borderRadius: "50%", border: `1.5px solid ${a.ring}`, flexShrink: 0 }}
+    />
+  );
+  if (!onToggle) {
+    return (
+      <span
+        className="pill"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "3px 10px",
+          fontSize: "0.68rem",
+          background: "var(--color-pill-bg)",
+        }}
+      >
+        {ring}
+        {service}
+      </span>
+    );
+  }
+  return (
+    <label
+      className="pill"
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        padding: "3px 10px",
+        fontSize: "0.68rem",
+        cursor: "pointer",
+        background: selected ? a.bgSelected : "var(--color-pill-bg)",
+        color: selected ? a.fg : "inherit",
+        border: `1px solid ${selected ? a.ring : "transparent"}`,
+      }}
+    >
+      <input type="checkbox" checked={selected} onChange={onToggle} style={srOnlyCheckbox} />
+      {ring}
+      {service}
+    </label>
+  );
+}
+
 export function CreativeRegistry() {
   const { password } = useAdminAuth();
   const [creatives, setCreatives] = useState<CreativeRegistryEntry[] | null>(null);
@@ -53,6 +195,10 @@ export function CreativeRegistry() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showTrash, setShowTrash] = useState(false);
+  const [search, setSearch] = useState("");
+  const [fieldFilter, setFieldFilter] = useState("");
 
   const load = useCallback(async () => {
     if (!password) return;
@@ -136,21 +282,70 @@ export function CreativeRegistry() {
     }
   }
 
+  // Soft delete — moves the entry to the trash. Recoverable via restore()
+  // until someone explicitly empties the trash with permanentlyDelete().
   async function remove(itemId: string) {
     if (!password) return;
     const { creatives } = await adminApi.deleteCreative(password, itemId);
     setCreatives(creatives);
+    setConfirmDeleteId(null);
   }
+
+  async function restore(itemId: string) {
+    if (!password) return;
+    const { creatives } = await adminApi.restoreCreative(password, itemId);
+    setCreatives(creatives);
+  }
+
+  async function permanentlyDelete(itemId: string) {
+    if (!password) return;
+    const { creatives } = await adminApi.permanentlyDeleteCreative(password, itemId);
+    setCreatives(creatives);
+    setConfirmDeleteId(null);
+  }
+
+  function toggleTrash() {
+    setShowTrash((v) => !v);
+    setShowForm(false);
+    setEditingId(null);
+    setConfirmDeleteId(null);
+  }
+
+  const archivedCount = creatives?.filter((e) => e.status === "archived").length ?? 0;
+
+  const visibleCreatives = useMemo(() => {
+    if (!creatives) return null;
+    const base = creatives.filter((e) => (showTrash ? e.status === "archived" : e.status !== "archived"));
+    const q = search.trim().toLowerCase();
+    return base.filter((e) => {
+      if (fieldFilter && !e.creativeFields.includes(fieldFilter)) return false;
+      if (!q) return true;
+      const haystack = [e.displayName, e.contactName, e.email, ...e.creativeFields, ...e.creativeServices]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [creatives, showTrash, search, fieldFilter]);
 
   return (
     <AdminLayout>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h1 style={{ margin: 0 }}>Creative Registry</h1>
-        {!showForm && <button onClick={startAdd}>+ Add creative</button>}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 24,
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <h1 style={{ margin: 0 }}>{showTrash ? "Creative Registry — Trash" : "Creative Registry"}</h1>
+        {!showTrash && !showForm && <button onClick={startAdd}>+ Add creative</button>}
       </div>
       <p style={{ fontSize: "0.85rem", opacity: 0.75, marginTop: -12, marginBottom: 24 }}>
-        Your real supplier database — shared across every demo, not scoped to one. Contact info, price ranges,
-        and technical requirements are admin-only and never shown to a client.
+        {showTrash
+          ? "Removed creatives — restore one back to the registry, or delete it for good."
+          : "Your real supplier database — shared across every demo, not scoped to one. Contact info, price ranges, and technical requirements are admin-only and never shown to a client."}
       </p>
 
       {error && <p style={{ color: "#B23A48" }}>{error}</p>}
@@ -187,63 +382,59 @@ export function CreativeRegistry() {
 
           <h4 style={{ marginTop: 24, marginBottom: 8 }}>Creative profile</h4>
           <label>Creative field (select all that apply)</label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
             {CREATIVE_FIELDS.map((field) => (
-              <label
+              <FieldChip
                 key={field}
-                className="pill"
-                style={{
-                  cursor: "pointer",
-                  background: form.creativeFields.includes(field) ? "var(--color-accent)" : "var(--color-pill-bg)",
-                  color: form.creativeFields.includes(field) ? "var(--color-on-dark)" : "inherit",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={form.creativeFields.includes(field)}
-                  onChange={() => toggleField(field)}
-                  style={{ marginRight: 6 }}
-                />
-                {field}
-              </label>
+                field={field}
+                selected={form.creativeFields.includes(field)}
+                onToggle={() => toggleField(field)}
+              />
             ))}
           </div>
+
           <label>Creative service (select at least one)</label>
           {form.creativeFields.length === 0 ? (
             <p style={{ fontSize: "0.8rem", opacity: 0.6, marginTop: 4 }}>
               Select a creative field above to see its services.
             </p>
           ) : (
-            servicesForFields(form.creativeFields).map(({ field, services }) => (
-              <div key={field} style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: "0.75rem", fontWeight: 600, opacity: 0.6, margin: "8px 0 6px" }}>
-                  {field.toUpperCase()}
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {services.map((service) => (
-                    <label
-                      key={service}
-                      className="pill"
-                      style={{
-                        cursor: "pointer",
-                        background: form.creativeServices.includes(service)
-                          ? "var(--color-accent)"
-                          : "var(--color-pill-bg)",
-                        color: form.creativeServices.includes(service) ? "var(--color-on-dark)" : "inherit",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.creativeServices.includes(service)}
-                        onChange={() => toggleService(service)}
-                        style={{ marginRight: 6 }}
-                      />
-                      {service}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))
+            <div style={{ display: "grid", gap: 6 }}>
+              {servicesForFields(form.creativeFields).map(({ field, services }) => {
+                const a = fieldAccent(field);
+                const selectedCount = services.filter((s) => form.creativeServices.includes(s)).length;
+                return (
+                  <details
+                    key={field}
+                    style={{
+                      border: `1px solid ${a.border}`,
+                      borderRadius: 8,
+                      padding: "6px 10px",
+                      background: selectedCount > 0 ? a.bgSelected : "transparent",
+                    }}
+                  >
+                    <summary style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.75rem", fontWeight: 600 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.dot, flexShrink: 0 }} />
+                      <span style={{ textTransform: "uppercase", letterSpacing: "0.03em" }}>{field}</span>
+                      <span style={{ opacity: 0.55, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+                        {selectedCount > 0 ? `${selectedCount} selected` : `${services.length} services`}
+                      </span>
+                    </summary>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                      {services.map((service) => (
+                        <ServiceChip
+                          key={service}
+                          service={service}
+                          field={field}
+                          selected={form.creativeServices.includes(service)}
+                          onToggle={() => toggleService(service)}
+                        />
+                      ))}
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
           )}
 
           <h4 style={{ marginTop: 24, marginBottom: 8 }}>Work details</h4>
@@ -329,45 +520,170 @@ export function CreativeRegistry() {
         </div>
       )}
 
-      {creatives === null && !error && <p>Loading…</p>}
-      {creatives && creatives.length === 0 && !showForm && <p>No creatives yet — add the first one.</p>}
-
       {creatives && creatives.length > 0 && (
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+          <input
+            placeholder="Search by name, contact, field, or service…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ maxWidth: 320 }}
+          />
+          <select value={fieldFilter} onChange={(e) => setFieldFilter(e.target.value)} style={{ maxWidth: 220 }}>
+            <option value="">All fields</option>
+            {CREATIVE_FIELDS.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+          {archivedCount > 0 && (
+            <button
+              className="btn-secondary"
+              onClick={toggleTrash}
+              style={{ marginLeft: "auto", fontSize: "0.8rem", padding: "8px 14px" }}
+            >
+              {showTrash ? "← Back to registry" : `Trash (${archivedCount})`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {visibleCreatives === null && !error && <p>Loading…</p>}
+      {visibleCreatives && visibleCreatives.length === 0 && !showForm && (
+        <p>
+          {showTrash
+            ? "Trash is empty."
+            : creatives && creatives.length > 0
+              ? "No creatives match your search."
+              : "No creatives yet — add the first one."}
+        </p>
+      )}
+
+      {visibleCreatives && visibleCreatives.length > 0 && (
         <div style={{ display: "grid", gap: 12 }}>
-          {creatives.map((entry) => (
-            <div key={entry.id} className="card" style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-              <div style={{ flex: 1 }}>
-                <strong>{entry.displayName}</strong>{" "}
-                <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>({entry.contactName})</span>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-                  {[...entry.creativeFields, ...entry.creativeServices].map((tag) => (
-                    <span key={tag} className="pill">
-                      {tag}
-                    </span>
-                  ))}
-                  {entry.status === "inactive" && (
-                    <span className="pill" style={{ opacity: 0.6 }}>
-                      Inactive
-                    </span>
+          {visibleCreatives.map((entry) => {
+            const waDigits =
+              entry.whatsappForBusiness && entry.phone
+                ? `${entry.phoneCountryCode}${entry.phone}`.replace(/\D/g, "")
+                : null;
+            const confirming = confirmDeleteId === entry.id;
+            return (
+              <div key={entry.id} className="card" style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                    <strong>{entry.displayName}</strong>
+                    <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>({entry.contactName})</span>
+                    {entry.status === "inactive" && (
+                      <span className="pill" style={{ opacity: 0.6, fontSize: "0.65rem", padding: "2px 8px" }}>
+                        Inactive
+                      </span>
+                    )}
+                    {entry.status === "archived" && entry.archivedAt && (
+                      <span className="pill" style={{ opacity: 0.6, fontSize: "0.65rem", padding: "2px 8px" }}>
+                        Removed {new Date(entry.archivedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+
+                  {entry.creativeFields.length > 0 && (
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
+                      {entry.creativeFields.map((f) => (
+                        <FieldChip key={f} field={f} selected />
+                      ))}
+                    </div>
+                  )}
+                  {entry.creativeServices.length > 0 && (
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
+                      {entry.creativeServices.map((s) => (
+                        <ServiceChip key={s} service={s} field={fieldForService(s)} selected={false} />
+                      ))}
+                    </div>
+                  )}
+
+                  {entry.workDescription && (
+                    <p style={{ margin: "8px 0 0", fontSize: "0.85rem", opacity: 0.78 }}>{entry.workDescription}</p>
+                  )}
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 14,
+                      marginTop: 8,
+                      fontSize: "0.8rem",
+                      opacity: 0.85,
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                    }}
+                  >
+                    {entry.email && (
+                      <a href={`mailto:${entry.email}`} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        ✉ {entry.email}
+                      </a>
+                    )}
+                    {entry.phone && (
+                      <span style={{ opacity: 0.75 }}>
+                        {entry.phoneCountryCode} {entry.phone}
+                      </span>
+                    )}
+                    {waDigits && (
+                      <a
+                        href={`https://wa.me/${waDigits}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--paid)", fontWeight: 600 }}
+                      >
+                        ✆ WhatsApp
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
+                  {showTrash ? (
+                    confirming ? (
+                      <>
+                        <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>Delete forever?</span>
+                        <button onClick={() => permanentlyDelete(entry.id)} style={{ background: "var(--overdue)" }}>
+                          Yes, delete
+                        </button>
+                        <button className="btn-secondary" onClick={() => setConfirmDeleteId(null)}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="btn-secondary" onClick={() => restore(entry.id)}>
+                          Restore
+                        </button>
+                        <button className="btn-secondary" onClick={() => setConfirmDeleteId(entry.id)}>
+                          Delete forever
+                        </button>
+                      </>
+                    )
+                  ) : confirming ? (
+                    <>
+                      <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>Remove?</span>
+                      <button onClick={() => remove(entry.id)} style={{ background: "var(--overdue)" }}>
+                        Confirm
+                      </button>
+                      <button className="btn-secondary" onClick={() => setConfirmDeleteId(null)}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn-secondary" onClick={() => startEdit(entry)}>
+                        Edit
+                      </button>
+                      <button className="btn-secondary" onClick={() => setConfirmDeleteId(entry.id)}>
+                        Remove
+                      </button>
+                    </>
                   )}
                 </div>
-                {entry.workDescription && (
-                  <p style={{ margin: "8px 0 0", fontSize: "0.85rem", opacity: 0.78 }}>{entry.workDescription}</p>
-                )}
-                <p style={{ margin: "8px 0 0", fontSize: "0.8rem", opacity: 0.6 }}>
-                  {entry.email} {entry.phone && `· ${entry.phoneCountryCode} ${entry.phone}`}
-                </p>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn-secondary" onClick={() => startEdit(entry)}>
-                  Edit
-                </button>
-                <button className="btn-secondary" onClick={() => remove(entry.id)}>
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </AdminLayout>

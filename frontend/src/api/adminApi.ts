@@ -209,9 +209,31 @@ export function updateCreative(
   return apiRequest(`/api/admin/creatives/${itemId}`, { method: "PATCH", body: entry, adminPassword });
 }
 
+// Soft delete — moves the entry to the trash (status: "archived");
+// recoverable. See restoreCreative / permanentlyDeleteCreative below.
 export function deleteCreative(
   adminPassword: string,
   itemId: string,
 ): Promise<{ creatives: CreativeRegistryEntry[] }> {
   return apiRequest(`/api/admin/creatives/${itemId}`, { method: "DELETE", adminPassword });
+}
+
+export function restoreCreative(
+  adminPassword: string,
+  itemId: string,
+): Promise<{ creatives: CreativeRegistryEntry[] }> {
+  return apiRequest(`/api/admin/creatives/${itemId}`, {
+    method: "PATCH",
+    body: { status: "active" },
+    adminPassword,
+  });
+}
+
+// Irreversible — only offered from the Trash view on an already-archived
+// entry.
+export function permanentlyDeleteCreative(
+  adminPassword: string,
+  itemId: string,
+): Promise<{ creatives: CreativeRegistryEntry[] }> {
+  return apiRequest(`/api/admin/creatives/${itemId}/permanent`, { method: "DELETE", adminPassword });
 }

@@ -108,11 +108,15 @@ export interface DemoRecord {
 // client-facing route (none exists yet — this registry is admin-only
 // until a demo's Programming picks from it, at which point only
 // PublicCreativeProfile's fields may reach the client).
-export type CreativeRegistryStatus = "active" | "inactive";
+// "archived" = soft-deleted: hidden from the default registry view but
+// kept in KV and restorable, rather than gone the moment "Remove" is
+// clicked. See adminRoutes.delete("/creatives/:itemId") in routes/admin.ts.
+export type CreativeRegistryStatus = "active" | "inactive" | "archived";
 
 export interface CreativeRegistryEntry {
   id: string;
   status: CreativeRegistryStatus;
+  archivedAt: number | null;
 
   // Client-safe if this creative is ever surfaced in a demo.
   displayName: string; // artist / studio / group / band name

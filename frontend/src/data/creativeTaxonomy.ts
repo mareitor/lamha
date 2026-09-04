@@ -203,3 +203,45 @@ export function servicesForFields(fields: string[]): { field: string; services: 
     .filter((field) => CREATIVE_TAXONOMY[field])
     .map((field) => ({ field, services: CREATIVE_TAXONOMY[field] }));
 }
+
+// Which field a given service belongs to — used to color-match a
+// service pill to its field wherever the two are shown apart (e.g. the
+// registry list's flattened tag rows). Falls back to the service's own
+// name if it isn't found (shouldn't happen for real taxonomy data).
+const SERVICE_TO_FIELD: Record<string, string> = Object.fromEntries(
+  Object.entries(CREATIVE_TAXONOMY).flatMap(([field, services]) => services.map((service) => [service, field])),
+);
+export function fieldForService(service: string): string | undefined {
+  return SERVICE_TO_FIELD[service];
+}
+
+// One color per creative field, spread evenly around the hue wheel so
+// all 16 are distinguishable — a field's chip and every one of its
+// services share the same hue, so the two dimensions (which field? which
+// service?) both read at a glance: field chips are solid/filled, service
+// chips are the same hue at lower saturation with a hollow ring marker.
+export function fieldHue(field: string): number {
+  const idx = CREATIVE_FIELDS.indexOf(field);
+  return idx === -1 ? 0 : Math.round((idx * 360) / CREATIVE_FIELDS.length);
+}
+
+export interface FieldAccent {
+  hue: number;
+  dot: string; // solid marker color (field-level)
+  ring: string; // service-level marker color (lighter, same hue)
+  fg: string; // text color on a tinted chip
+  bgSelected: string; // tinted chip background when selected/present
+  border: string;
+}
+
+export function fieldAccent(field: string): FieldAccent {
+  const hue = fieldHue(field);
+  return {
+    hue,
+    dot: `hsl(${hue} 62% 40%)`,
+    ring: `hsl(${hue} 70% 62%)`,
+    fg: `hsl(${hue} 55% 26%)`,
+    bgSelected: `hsl(${hue} 62% 94%)`,
+    border: `hsl(${hue} 45% 76%)`,
+  };
+}

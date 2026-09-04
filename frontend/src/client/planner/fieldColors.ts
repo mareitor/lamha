@@ -1,3 +1,5 @@
+import { CREATIVE_FIELDS } from "../../data/creativeTaxonomy";
+
 // Maps a creative field to its calendar/legend color token (theme.css
 // --field-*). Falls back to the primary color for anything outside the
 // four fields the roster currently uses, so a future roster addition
@@ -13,4 +15,4 @@ export function fieldColor(field: string): string {
   return FIELD_COLOR_VARS[field] ?? "var(--color-primary)";
 }
 
-export const CREATIVE_FIELDS = Object.keys(FIELD_COLOR_VARS);
+export { CREATIVE_FIELDS };

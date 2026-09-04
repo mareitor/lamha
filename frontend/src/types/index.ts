@@ -104,6 +104,36 @@ export interface DemoIndexEntry {
   status: DemoStatus;
 }
 
+// The real supplier/creative database — account-wide, not per-demo.
+// Admin-only (no client route reads this today). See worker's mirror of
+// this type for the internal-vs-client-safe field split.
+export type CreativeRegistryStatus = "active" | "inactive";
+
+export interface CreativeRegistryEntry {
+  id: string;
+  status: CreativeRegistryStatus;
+
+  displayName: string;
+  creativeFields: string[];
+  creativeServices: string[];
+  workDescription: string;
+  website: string;
+  socialMediaLink: string;
+
+  // Internal only (Mario, Sept 2026) — admin UI may show these, but they
+  // must never flow into a client-facing view.
+  contactName: string;
+  email: string;
+  phoneCountryCode: string;
+  phone: string;
+  whatsappForBusiness: boolean | null;
+  standardServicesPriceRange: string;
+  technicalRequirements: string;
+
+  addedAt: number;
+  updatedAt: number;
+}
+
 export interface RosterCreative {
   id: string;
   name: string;

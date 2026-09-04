@@ -5,6 +5,7 @@ import { AdminLogin } from "./admin/AdminLogin";
 import { AdminDashboard } from "./admin/AdminDashboard";
 import { NewDemoForm } from "./admin/NewDemoForm";
 import { DemoEditor } from "./admin/DemoEditor";
+import { CreativeRegistry } from "./admin/CreativeRegistry";
 import { DemoShell } from "./client/DemoShell";
 
 export function App() {
@@ -36,6 +37,14 @@ export function App() {
             element={
               <AdminRouteGuard>
                 <DemoEditor />
+              </AdminRouteGuard>
+            }
+          />
+          <Route
+            path="/admin/creatives"
+            element={
+              <AdminRouteGuard>
+                <CreativeRegistry />
               </AdminRouteGuard>
             }
           />

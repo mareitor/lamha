@@ -8,6 +8,7 @@ import type {
   ProgrammingEntry,
   InvoiceEntry,
   Location,
+  CreativeRegistryEntry,
 } from "../types";
 
 // Admin-scoped API — every call requires the shared admin password,
@@ -184,4 +185,33 @@ export function deleteLocation(adminPassword: string, id: string, itemId: string
     method: "DELETE",
     adminPassword,
   });
+}
+
+// ---- Creative Registry (account-wide real suppliers/creatives — not
+// scoped to a demo, unlike everything above) ----
+
+export function listCreatives(adminPassword: string): Promise<{ creatives: CreativeRegistryEntry[] }> {
+  return apiRequest("/api/admin/creatives", { adminPassword });
+}
+
+export function addCreative(
+  adminPassword: string,
+  entry: Partial<CreativeRegistryEntry>,
+): Promise<{ creatives: CreativeRegistryEntry[] }> {
+  return apiRequest("/api/admin/creatives", { method: "POST", body: entry, adminPassword });
+}
+
+export function updateCreative(
+  adminPassword: string,
+  itemId: string,
+  entry: Partial<CreativeRegistryEntry>,
+): Promise<{ creatives: CreativeRegistryEntry[] }> {
+  return apiRequest(`/api/admin/creatives/${itemId}`, { method: "PATCH", body: entry, adminPassword });
+}
+
+export function deleteCreative(
+  adminPassword: string,
+  itemId: string,
+): Promise<{ creatives: CreativeRegistryEntry[] }> {
+  return apiRequest(`/api/admin/creatives/${itemId}`, { method: "DELETE", adminPassword });
 }

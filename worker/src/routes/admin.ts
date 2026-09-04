@@ -1,10 +1,12 @@
 import { Hono, type Context } from "hono";
-import type { DemoRecord, Env, InvoiceEntry, Location, ProgrammingEntry } from "../types";
+import type { CreativeRegistryEntry, DemoRecord, Env, InvoiceEntry, Location, ProgrammingEntry } from "../types";
 import {
   createDemo,
   deleteDemo,
+  getCreativeRegistry,
   getDemo,
   getIndex,
+  putCreativeRegistry,
   putDemo,
   removeIndexEntry,
   resyncIndex,
@@ -333,4 +335,66 @@ adminRoutes.delete("/demos/:id/invoices/:itemId", async (c) => {
   };
   await putDemo(c.env, updated);
   return c.json(updated);
+});
+
+// ---- Creative Registry — real suppliers/creatives, account-wide, not
+// scoped to a demo. Admin-only: every field here is fair game to read,
+// including contact/pricing/ops fields that must never reach a
+// client-facing route. Nothing client-facing references this yet — that
+// lands when a demo's Programming starts picking from it. ----
+
+adminRoutes.get("/creatives", async (c) => {
+  const registry = await getCreativeRegistry(c.env);
+  return c.json({ creatives: registry });
+});
+
+adminRoutes.post("/creatives", async (c) => {
+  const body = await c.req.json<Partial<CreativeRegistryEntry>>();
+  const registry = await getCreativeRegistry(c.env);
+  const now = Date.now();
+  const entry: CreativeRegistryEntry = {
+    id: generateItemId(),
+    status: body.status ?? "active",
+    displayName: body.displayName ?? "Untitled",
+    creativeFields: body.creativeFields ?? [],
+    creativeServices: body.creativeServices ?? [],
+    workDescription: body.workDescription ?? "",
+    website: body.website ?? "",
+    socialMediaLink: body.socialMediaLink ?? "",
+    contactName: body.contactName ?? "",
+    email: body.email ?? "",
+    phoneCountryCode: body.phoneCountryCode ?? "",
+    phone: body.phone ?? "",
+    whatsappForBusiness: body.whatsappForBusiness ?? null,
+    standardServicesPriceRange: body.standardServicesPriceRange ?? "",
+    technicalRequirements: body.technicalRequirements ?? "",
+    addedAt: now,
+    updatedAt: now,
+  };
+  registry.push(entry);
+  await putCreativeRegistry(c.env, registry);
+  return c.json({ creatives: registry }, 201);
+});
+
+adminRoutes.patch("/creatives/:itemId", async (c) => {
+  const itemId = c.req.param("itemId");
+  const body = await c.req.json<Partial<CreativeRegistryEntry>>();
+  const registry = await getCreativeRegistry(c.env);
+  let found = false;
+  const updated = registry.map((entry) => {
+    if (entry.id !== itemId) return entry;
+    found = true;
+    return { ...entry, ...body, id: entry.id, updatedAt: Date.now() };
+  });
+  if (!found) return c.json({ error: "not_found" }, 404);
+  await putCreativeRegistry(c.env, updated);
+  return c.json({ creatives: updated });
+});
+
+adminRoutes.delete("/creatives/:itemId", async (c) => {
+  const itemId = c.req.param("itemId");
+  const registry = await getCreativeRegistry(c.env);
+  const updated = registry.filter((entry) => entry.id !== itemId);
+  await putCreativeRegistry(c.env, updated);
+  return c.json({ creatives: updated });
 });

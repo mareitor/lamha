@@ -26,11 +26,19 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           borderBottom: "1px solid var(--color-pill-bg)",
         }}
       >
-        <Link to="/admin" style={{ textDecoration: "none" }}>
-          <strong style={{ fontFamily: "var(--font-heading)", fontSize: "1.3rem" }}>
-            Lamha Admin
-          </strong>
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <Link to="/admin" style={{ textDecoration: "none" }}>
+            <strong style={{ fontFamily: "var(--font-heading)", fontSize: "1.3rem" }}>
+              Lamha Admin
+            </strong>
+          </Link>
+          <Link to="/admin" style={{ fontSize: "0.85rem" }}>
+            Demos
+          </Link>
+          <Link to="/admin/creatives" style={{ fontSize: "0.85rem" }}>
+            Creative Registry
+          </Link>
+        </div>
         <button
           className="btn-secondary"
           onClick={() => {

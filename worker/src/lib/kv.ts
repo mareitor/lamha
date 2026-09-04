@@ -1,9 +1,25 @@
-import type { DemoIndexEntry, DemoRecord, Env } from "../types";
+import type { CreativeRegistryEntry, DemoIndexEntry, DemoRecord, Env } from "../types";
 import { generateDemoId, generateItemId } from "./ids";
 
 const DEMO_PREFIX = "demo:";
 const INDEX_KEY = "demos:index";
 const DEMO_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+// Account-wide creative/supplier registry — one JSON array under a
+// single key, same shallow-storage approach as demos:index. Not
+// per-demo: this is Mario's real supplier database, shared across every
+// demo, unlike everything keyed under DEMO_PREFIX.
+const CREATIVE_REGISTRY_KEY = "creatives:registry";
+
+export async function getCreativeRegistry(env: Env): Promise<CreativeRegistryEntry[]> {
+  const raw = await env.LAMHA_KV.get(CREATIVE_REGISTRY_KEY);
+  if (!raw) return [];
+  return JSON.parse(raw) as CreativeRegistryEntry[];
+}
+
+export async function putCreativeRegistry(env: Env, registry: CreativeRegistryEntry[]): Promise<void> {
+  await env.LAMHA_KV.put(CREATIVE_REGISTRY_KEY, JSON.stringify(registry));
+}
 
 function demoKey(id: string): string {
   return `${DEMO_PREFIX}${id}`;

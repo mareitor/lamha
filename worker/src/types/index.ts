@@ -101,6 +101,50 @@ export interface DemoRecord {
   invoices: InvoiceEntry[];
 }
 
+// The real supplier/creative database — account-wide (not per-demo,
+// unlike everything above), stored at KV key "creatives:registry".
+// Populated from the real supplier-intake form. Contact/pricing/ops
+// fields below are marked internal: they must never be sent down a
+// client-facing route (none exists yet — this registry is admin-only
+// until a demo's Programming picks from it, at which point only
+// PublicCreativeProfile's fields may reach the client).
+export type CreativeRegistryStatus = "active" | "inactive";
+
+export interface CreativeRegistryEntry {
+  id: string;
+  status: CreativeRegistryStatus;
+
+  // Client-safe if this creative is ever surfaced in a demo.
+  displayName: string; // artist / studio / group / band name
+  creativeFields: string[]; // multi-select, "select all that apply"
+  creativeServices: string[]; // multi-select, "select at least one"
+  workDescription: string; // "tell us more about your work"
+  website: string;
+  socialMediaLink: string;
+
+  // Internal only (Mario, Sept 2026) — never project these into a
+  // client-facing view.
+  contactName: string; // the real person's name, as opposed to displayName
+  email: string;
+  phoneCountryCode: string;
+  phone: string;
+  whatsappForBusiness: boolean | null; // null = not answered
+  standardServicesPriceRange: string;
+  technicalRequirements: string;
+
+  addedAt: number;
+  updatedAt: number;
+}
+
+// The subset of a registry entry that's safe to ever show a client.
+// Not wired into any client route yet (that lands when Programming
+// starts picking from the registry) — defined now so the boundary is
+// explicit from day one rather than retrofitted later.
+export type PublicCreativeProfile = Pick<
+  CreativeRegistryEntry,
+  "id" | "displayName" | "creativeFields" | "creativeServices" | "workDescription" | "website" | "socialMediaLink"
+>;
+
 export interface DemoIndexEntry {
   id: string;
   companyName: string;

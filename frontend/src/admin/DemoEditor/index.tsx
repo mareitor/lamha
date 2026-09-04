@@ -92,9 +92,11 @@ function BrandingTab({ demo, password, onSaved }: TabProps) {
   const [accentColor, setAccentColor] = useState(demo.branding.accentColor ?? "#2C4741");
   const [logo, setLogo] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   async function save() {
     setSaving(true);
+    setJustSaved(false);
     try {
       const updated = await adminApi.updateBranding(password, demo.id, {
         companyDisplayName,
@@ -103,6 +105,8 @@ function BrandingTab({ demo, password, onSaved }: TabProps) {
       });
       onSaved(updated);
       setLogo(null);
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2500);
     } finally {
       setSaving(false);
     }
@@ -145,6 +149,7 @@ function BrandingTab({ demo, password, onSaved }: TabProps) {
       <button onClick={save} disabled={saving} style={{ marginTop: 20 }}>
         {saving ? "Saving…" : "Save branding"}
       </button>
+      {justSaved && <SavedBadge />}
     </div>
   );
 }
@@ -152,11 +157,15 @@ function BrandingTab({ demo, password, onSaved }: TabProps) {
 function EventTab({ demo, password, onSaved }: TabProps) {
   const [form, setForm] = useState(demo.event);
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   async function save() {
     setSaving(true);
+    setJustSaved(false);
     try {
       onSaved(await adminApi.updateEvent(password, demo.id, form));
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2500);
     } finally {
       setSaving(false);
     }
@@ -204,6 +213,7 @@ function EventTab({ demo, password, onSaved }: TabProps) {
       <button onClick={save} disabled={saving} style={{ marginTop: 20 }}>
         {saving ? "Saving…" : "Save event"}
       </button>
+      {justSaved && <SavedBadge />}
     </div>
   );
 }
@@ -211,11 +221,15 @@ function EventTab({ demo, password, onSaved }: TabProps) {
 function PaymentTab({ demo, password, onSaved }: TabProps) {
   const [form, setForm] = useState(demo.paymentPolicy);
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   async function save() {
     setSaving(true);
+    setJustSaved(false);
     try {
       onSaved(await adminApi.updatePaymentPolicy(password, demo.id, form));
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2500);
     } finally {
       setSaving(false);
     }
@@ -266,7 +280,26 @@ function PaymentTab({ demo, password, onSaved }: TabProps) {
       <button onClick={save} disabled={saving} style={{ marginTop: 20 }}>
         {saving ? "Saving…" : "Save payment policy"}
       </button>
+      {justSaved && <SavedBadge />}
     </div>
+  );
+}
+
+// Shown next to a save button for a couple seconds after a successful
+// save — otherwise the button just silently reverts to its idle label
+// and there's no way to tell the save actually landed.
+function SavedBadge() {
+  return (
+    <span
+      style={{
+        marginLeft: 12,
+        fontSize: "0.85rem",
+        fontWeight: 600,
+        color: "var(--color-primary)",
+      }}
+    >
+      ✓ Saved
+    </span>
   );
 }
 

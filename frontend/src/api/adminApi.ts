@@ -105,6 +105,22 @@ export function addProgramming(
   });
 }
 
+// Bulk import — e.g. a whole season generated up front rather than added
+// one date at a time. `locationName` is resolved server-side against this
+// demo's own locations by name (case-insensitive); no match just leaves
+// the entry unassigned rather than failing the row.
+export function importProgramming(
+  adminPassword: string,
+  id: string,
+  entries: (Partial<ProgrammingEntry> & { locationName?: string })[],
+): Promise<{ demo: DemoRecord; added: number }> {
+  return apiRequest(`/api/admin/demos/${id}/programming/import`, {
+    method: "POST",
+    body: { entries },
+    adminPassword,
+  });
+}
+
 export function updateProgramming(
   adminPassword: string,
   id: string,

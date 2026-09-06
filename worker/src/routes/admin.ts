@@ -204,6 +204,54 @@ adminRoutes.post("/demos/:id/programming", async (c) => {
   return c.json(updated);
 });
 
+// Bulk import — e.g. a whole season generated up front (a batch of dated
+// bookings) rather than added one at a time through "Add from roster".
+// Each incoming row is a Partial<ProgrammingEntry> plus an optional
+// `locationName`, matched case-insensitively against this demo's own
+// `locations` list (seasons are generated without knowing this demo's
+// actual location ids, only their default names) — no match just leaves
+// locationId null rather than failing the row. Same spirit as the
+// Creative Registry's bulk import: a malformed row degrades to sane
+// blanks instead of throwing, so one bad row can't sink the batch.
+adminRoutes.post("/demos/:id/programming/import", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const body = await c.req
+    .json<{ entries?: (Partial<ProgrammingEntry> & { locationName?: string })[] }>()
+    .catch((): { entries?: (Partial<ProgrammingEntry> & { locationName?: string })[] } => ({}));
+  const incoming = Array.isArray(body.entries) ? body.entries : [];
+
+  const now = Date.now();
+  const added: ProgrammingEntry[] = incoming.map((raw) => {
+    let locationId = raw.locationId ?? null;
+    if (!locationId && raw.locationName) {
+      const match = demo.locations.find(
+        (l) => l.name.trim().toLowerCase() === raw.locationName!.trim().toLowerCase(),
+      );
+      locationId = match?.id ?? null;
+    }
+    return {
+      id: generateItemId(),
+      rosterCreativeId: raw.rosterCreativeId ?? null,
+      name: raw.name ?? "Untitled",
+      creativeField: raw.creativeField ?? "",
+      creativeService: raw.creativeService ?? "",
+      locationId,
+      priceQuoted: raw.priceQuoted ?? 0,
+      currency: raw.currency ?? demo.budget.currency,
+      date: raw.date ?? null,
+      status: raw.status ?? "proposed",
+      notes: raw.notes ?? "",
+      addedBy: "admin",
+      updatedAt: now,
+    };
+  });
+
+  const updated: DemoRecord = { ...demo, programming: [...demo.programming, ...added] };
+  await putDemo(c.env, updated);
+  return c.json({ demo: updated, added: added.length });
+});
+
 adminRoutes.patch("/demos/:id/programming/:itemId", async (c) => {
   const demo = await loadOr404(c);
   if (!demo) return c.json({ error: "not_found" }, 404);

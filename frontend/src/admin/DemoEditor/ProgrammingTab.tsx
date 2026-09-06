@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import * as adminApi from "../../api/adminApi";
-import type { DemoRecord, ProgrammingStatus } from "../../types";
+import type { DemoRecord, ProgrammingEntry, ProgrammingStatus } from "../../types";
 import creativeRoster from "../../data/creativeRoster.json";
 
 interface Props {
@@ -11,12 +11,72 @@ interface Props {
 
 const STATUS_OPTIONS: ProgrammingStatus[] = ["proposed", "confirmed", "cancelled"];
 
+function IconUpload() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 16V4" />
+      <path d="M6 10l6-6 6 6" />
+      <path d="M4 20h16" />
+    </svg>
+  );
+}
+
+// Visually hidden but still focusable/clickable — see the matching const
+// in CreativeRegistry.tsx (same pattern, kept local here since it's the
+// only other place a file-input-as-a-text-link is used).
+const srOnlyFileInput = {
+  position: "absolute" as const,
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden" as const,
+  clip: "rect(0,0,0,0)",
+  whiteSpace: "nowrap" as const,
+  border: 0,
+};
+
 export function ProgrammingTab({ demo, password, onSaved }: Props) {
   const [rosterCreativeId, setRosterCreativeId] = useState("");
   const [priceQuoted, setPriceQuoted] = useState("");
   const [locationId, setLocationId] = useState("");
   const [date, setDate] = useState("");
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importAdded, setImportAdded] = useState<number | null>(null);
+
+  async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImportError(null);
+    setImportAdded(null);
+    setImporting(true);
+    try {
+      const text = await file.text();
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new Error("That file isn't valid JSON.");
+      }
+      if (!Array.isArray(parsed)) {
+        throw new Error("Expected a JSON array of programming entries.");
+      }
+      const { demo: updated, added } = await adminApi.importProgramming(
+        password,
+        demo.id,
+        parsed as (Partial<ProgrammingEntry> & { locationName?: string })[],
+      );
+      onSaved(updated);
+      setImportAdded(added);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Import failed.");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function handleAdd() {
     const creative = creativeRoster.find((a) => a.id === rosterCreativeId);
@@ -58,6 +118,49 @@ export function ProgrammingTab({ demo, password, onSaved }: Props) {
 
   return (
     <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            margin: 0,
+            fontSize: "0.85rem",
+            fontWeight: 600,
+            color: "var(--color-primary)",
+            opacity: importing ? 0.5 : 0.75,
+            cursor: importing ? "not-allowed" : "pointer",
+          }}
+        >
+          <IconUpload />
+          {importing ? "Importing…" : "Import season from file"}
+          <input
+            type="file"
+            accept="application/json"
+            onChange={handleImportFile}
+            disabled={importing}
+            style={srOnlyFileInput}
+          />
+        </label>
+      </div>
+
+      {importError && <p style={{ color: "#B23A48" }}>{importError}</p>}
+      {importAdded !== null && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 16,
+            padding: "10px 16px",
+            background: "var(--paid-bg)",
+            border: "1px solid var(--paid)",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "0.85rem" }}>
+            Imported <strong>{importAdded}</strong> programming {importAdded === 1 ? "entry" : "entries"}.
+          </p>
+        </div>
+      )}
+
       <div className="card" style={{ marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>Add from roster</h3>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>

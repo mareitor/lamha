@@ -1,5 +1,7 @@
-import type { CreativeRegistryEntry, DemoIndexEntry, DemoRecord, Env } from "../types";
+import type { CreativeRegistryEntry, CreativeService, Env, DemoIndexEntry, DemoRecord } from "../types";
+import { emptyServiceHardFacts } from "../types";
 import { generateDemoId, generateItemId } from "./ids";
+import { fieldForService } from "./creativeTaxonomy";
 
 const DEMO_PREFIX = "demo:";
 const INDEX_KEY = "demos:index";
@@ -19,6 +21,44 @@ export async function getCreativeRegistry(env: Env): Promise<CreativeRegistryEnt
 
 export async function putCreativeRegistry(env: Env, registry: CreativeRegistryEntry[]): Promise<void> {
   await env.LAMHA_KV.put(CREATIVE_REGISTRY_KEY, JSON.stringify(registry));
+}
+
+// Schema v2 migration (Sept 2026) — additive and idempotent. An entry
+// with `services` already set (even an empty array — that's a
+// deliberate "migrated, has no services" state) is left completely
+// untouched; nothing here ever deletes or overwrites a legacy field.
+// Each legacy `creativeServices` entry becomes its own CreativeService,
+// starting with every hard fact at "unknown" — we can't reliably invent
+// a real minimum budget out of the old free-text price notes, and
+// guessing would violate the whole point of the trust-tier model (see
+// types/index.ts's Fact<T>). `creativeField` is resolved via the
+// taxonomy map where possible, falling back to the creative's first
+// listed field, then "Uncategorized" as a last resort.
+export function migrateCreativeToServices(entry: CreativeRegistryEntry): CreativeRegistryEntry {
+  if (Array.isArray(entry.services)) return entry;
+
+  const now = Date.now();
+  const legacyServiceNames = entry.creativeServices ?? [];
+  const services: CreativeService[] = legacyServiceNames.map((serviceName) => ({
+    id: generateItemId(),
+    creativeField: fieldForService(serviceName) ?? entry.creativeFields?.[0] ?? "Uncategorized",
+    serviceName,
+    status: entry.status === "archived" ? "inactive" : (entry.status as "active" | "inactive"),
+    hardFacts: emptyServiceHardFacts(now),
+    workDescription: entry.workDescription ?? "",
+    aiSemanticTags: [],
+    curatorNote: null,
+    verifiedFacts: [],
+    addedAt: entry.addedAt,
+    updatedAt: now,
+  }));
+
+  return {
+    ...entry,
+    services,
+    curatorNote: entry.curatorNote ?? null,
+    verifiedFacts: entry.verifiedFacts ?? [],
+  };
 }
 
 function demoKey(id: string): string {

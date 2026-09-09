@@ -3,6 +3,7 @@ import type { ChangeEvent } from "react";
 import { useAdminAuth } from "./AdminAuthContext";
 import * as adminApi from "../api/adminApi";
 import { AdminLayout } from "./AdminLayout";
+import { CreativeServicesPanel } from "./CreativeServicesPanel";
 import {
   CREATIVE_FIELDS,
   CREATIVE_TAXONOMY,
@@ -11,6 +12,8 @@ import {
   fieldAccent,
 } from "../data/creativeTaxonomy";
 import type { CreativeRegistryEntry } from "../types";
+
+const CURATOR_AUTHOR_NAME = "Mario"; // single shared admin, no per-admin accounts (see plan doc)
 
 // Account-wide real supplier/creative database (this is step 2 of the
 // plan — schema + admin CRUD — before the real intake-form data gets
@@ -37,6 +40,9 @@ type FormState = {
   technicalRequirements: string;
   standardServicesPriceRange: string;
   whatsappForBusiness: boolean | null;
+  // Schema v2 (Sept 2026) — profile-level curator note. Free text only
+  // here; per-service curator notes live in CreativeServicesPanel.
+  curatorNoteText: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -54,6 +60,7 @@ const EMPTY_FORM: FormState = {
   technicalRequirements: "",
   standardServicesPriceRange: "",
   whatsappForBusiness: null,
+  curatorNoteText: "",
 };
 
 // Visually hidden but still focusable/clickable — keeps the underlying
@@ -301,6 +308,7 @@ export function CreativeRegistry() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [migrating, setMigrating] = useState(false);
 
   const load = useCallback(async () => {
     if (!password) return;
@@ -340,6 +348,7 @@ export function CreativeRegistry() {
       technicalRequirements: entry.technicalRequirements,
       standardServicesPriceRange: entry.standardServicesPriceRange,
       whatsappForBusiness: entry.whatsappForBusiness,
+      curatorNoteText: entry.curatorNote?.text ?? "",
     });
     setDuplicateMatch(null);
     setShowForm(true);
@@ -391,9 +400,20 @@ export function CreativeRegistry() {
     if (!password || !form.displayName.trim()) return;
     setSaving(true);
     try {
+      // curatorNoteText is this form's own local field, not part of
+      // CreativeRegistryEntry — translate it into the real curatorNote
+      // shape (or null, to explicitly clear it) rather than sending the
+      // raw text field through.
+      const { curatorNoteText, ...rest } = form;
+      const payload: Partial<CreativeRegistryEntry> = {
+        ...rest,
+        curatorNote: curatorNoteText.trim()
+          ? { text: curatorNoteText.trim(), authorName: CURATOR_AUTHOR_NAME, updatedAt: Date.now() }
+          : null,
+      };
       const { creatives } = editingId
-        ? await adminApi.updateCreative(password, editingId, form)
-        : await adminApi.addCreative(password, form);
+        ? await adminApi.updateCreative(password, editingId, payload)
+        : await adminApi.addCreative(password, payload);
       setCreatives(creatives);
       setShowForm(false);
       setForm(EMPTY_FORM);
@@ -516,6 +536,24 @@ export function CreativeRegistry() {
 
   const archivedCount = creatives?.filter((e) => e.status === "archived").length ?? 0;
   const totalCount = creatives?.filter((e) => e.status !== "archived").length ?? 0;
+  // Schema v2 (Sept 2026) — entries that haven't picked up the new
+  // per-service fields yet (services is undefined, not just empty; see
+  // migrateCreativeToServices in the worker). Per-entry routes migrate
+  // in-memory on demand, but this one-time bulk pass persists it so
+  // service ids stay stable and matching doesn't recompute them fresh
+  // on every run.
+  const unmigratedCount = creatives?.filter((e) => e.status !== "archived" && !Array.isArray(e.services)).length ?? 0;
+
+  async function runMigration() {
+    if (!password) return;
+    setMigrating(true);
+    try {
+      const { creatives } = await adminApi.migrateCreativesToServices(password);
+      setCreatives(creatives);
+    } finally {
+      setMigrating(false);
+    }
+  }
 
   const visibleCreatives = useMemo(() => {
     if (!creatives) return null;
@@ -586,6 +624,34 @@ export function CreativeRegistry() {
           ? "Removed creatives — nothing here is ever erased. Restore one back to the registry whenever you're ready."
           : "Your real supplier database — shared across every demo, not scoped to one. Contact info, price ranges, and technical requirements are admin-only and never shown to a client."}
       </p>
+
+      {!showTrash && !showForm && unmigratedCount > 0 && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 24,
+            padding: "12px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "0.85rem" }}>
+            <strong>{unmigratedCount}</strong> {unmigratedCount === 1 ? "creative hasn't" : "creatives haven't"} been
+            upgraded to the new per-service records yet — this is additive and safe, nothing existing gets removed
+            or overwritten.
+          </p>
+          <button
+            className="btn-secondary"
+            style={{ marginLeft: "auto", fontSize: "0.8rem", padding: "6px 14px", flexShrink: 0 }}
+            onClick={runMigration}
+            disabled={migrating}
+          >
+            {migrating ? "Upgrading…" : "Upgrade now"}
+          </button>
+        </div>
+      )}
 
       {error && <p style={{ color: "#B23A48" }}>{error}</p>}
       {importError && <p style={{ color: "#B23A48" }}>{importError}</p>}
@@ -769,6 +835,16 @@ export function CreativeRegistry() {
               onChange={(e) => setForm({ ...form, standardServicesPriceRange: e.target.value })}
             />
           </div>
+
+          <h4 style={{ marginTop: 24, marginBottom: 8 }}>
+            Curator's note <span style={{ fontWeight: 400, opacity: 0.6 }}>(internal — your team's own judgment)</span>
+          </h4>
+          <textarea
+            rows={2}
+            placeholder="e.g. great with VIP clients, installations stronger than tabletop work…"
+            value={form.curatorNoteText}
+            onChange={(e) => setForm({ ...form, curatorNoteText: e.target.value })}
+          />
 
           <div style={{ marginTop: 16 }}>
             <label>Uses WhatsApp for business inquiries?</label>
@@ -1124,6 +1200,33 @@ export function CreativeRegistry() {
                           </p>
                         </div>
                       )}
+                      {entry.curatorNote && (
+                        <div>
+                          <label style={{ marginBottom: 2 }}>Curator's note (profile-level)</label>
+                          <p style={{ margin: 0, fontSize: "0.82rem", opacity: 0.85, whiteSpace: "pre-wrap" }}>
+                            {entry.curatorNote.text}
+                          </p>
+                        </div>
+                      )}
+                      {entry.verifiedFacts && entry.verifiedFacts.length > 0 && (
+                        <div>
+                          <label style={{ marginBottom: 2 }}>Verified (profile-level)</label>
+                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 4 }}>
+                            {entry.verifiedFacts.map((v) => (
+                              <span
+                                key={v.id}
+                                className="pill"
+                                style={{ fontSize: "0.68rem", border: "1px solid var(--paid)", color: "var(--paid)" }}
+                              >
+                                ✓ {v.label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <CreativeServicesPanel creative={entry} password={password ?? ""} onUpdated={setCreatives} />
+                      </div>
                       <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.5 }}>
                         Added {new Date(entry.addedAt).toLocaleDateString()}
                         {entry.updatedAt !== entry.addedAt &&

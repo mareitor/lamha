@@ -131,13 +131,13 @@ export function MatchesTab({ demo, password }: Props) {
             const waDigits =
               m.whatsappForBusiness && m.phone ? `${m.phoneCountryCode}${m.phone}`.replace(/\D/g, "") : null;
             return (
-              <div key={m.id} className="card">
+              <div key={`${m.creativeId}-${m.serviceId}`} className="card">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                   <div>
                     <strong>{m.displayName}</strong>
                     <div style={{ fontSize: "0.8rem", opacity: 0.7, marginTop: 2 }}>
-                      {m.creativeFields.join(", ")}
-                      {m.creativeServices.length > 0 ? ` — ${m.creativeServices.join(", ")}` : ""}
+                      {m.creativeField}
+                      {m.serviceName ? ` — ${m.serviceName}` : ""}
                     </div>
                   </div>
                   <span
@@ -154,6 +154,21 @@ export function MatchesTab({ demo, password }: Props) {
 
                 {m.workDescription && (
                   <p style={{ margin: "8px 0 0", fontSize: "0.83rem", opacity: 0.75 }}>{m.workDescription}</p>
+                )}
+
+                {m.curatorNote && (
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: "0.8rem",
+                      opacity: 0.85,
+                      background: "var(--color-pill-bg, rgba(0,0,0,0.04))",
+                      borderRadius: 6,
+                      padding: "6px 10px",
+                    }}
+                  >
+                    <strong style={{ fontWeight: 600 }}>Curator's note:</strong> {m.curatorNote}
+                  </p>
                 )}
 
                 <div

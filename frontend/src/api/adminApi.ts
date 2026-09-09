@@ -10,6 +10,9 @@ import type {
   Location,
   CreativeRegistryEntry,
   CreativeMatch,
+  Fact,
+  TravelWillingness,
+  VerifiedFact,
 } from "../types";
 
 // Admin-scoped API — every call requires the shared admin password,
@@ -281,6 +284,81 @@ export function restoreCreative(
 // left here, unused, only as a note of that boundary rather than a
 // dead export to trip over.
 // permanentlyDeleteCreative intentionally removed from the client API.
+
+// ---- Creative Services (schema v2, Sept 2026) — each service a
+// creative offers is its own record with its own hard facts. See
+// worker's types/index.ts (CreativeService/Fact<T>) and the schema
+// proposal doc for the full reasoning. ----
+
+// One-time (safe to re-run) migration: adds the new per-service fields
+// to every registry entry that doesn't have them yet. Purely additive —
+// never touches an entry that's already migrated. Run this once after
+// deploying schema v2, from wherever the registry page surfaces it.
+export function migrateCreativesToServices(
+  adminPassword: string,
+): Promise<{ creatives: CreativeRegistryEntry[]; migrated: number }> {
+  return apiRequest("/api/admin/creatives/migrate-to-services", { method: "POST", adminPassword });
+}
+
+export function addCreativeService(
+  adminPassword: string,
+  creativeId: string,
+  service: {
+    creativeField: string;
+    serviceName: string;
+    workDescription?: string;
+    status?: "active" | "inactive";
+  },
+): Promise<{ creatives: CreativeRegistryEntry[] }> {
+  return apiRequest(`/api/admin/creatives/${creativeId}/services`, {
+    method: "POST",
+    body: service,
+    adminPassword,
+  });
+}
+
+// Partial-merge patch for a service: hardFacts is patched fact-by-fact
+// (sending travelWillingness alone leaves minimumBudget untouched);
+// curatorNote/verifiedFacts are whole-value replacements. Mirrors the
+// worker's ServicePatchBody in routes/admin.ts.
+export interface ServicePatch {
+  creativeField?: string;
+  serviceName?: string;
+  status?: "active" | "inactive";
+  workDescription?: string;
+  hardFacts?: {
+    minimumBudget?: Partial<Fact<{ amount: number; currency: string }>>;
+    travelWillingness?: Partial<Fact<TravelWillingness>>;
+    outdoorCapable?: Partial<Fact<boolean>>;
+    leadTimeDays?: Partial<Fact<number>>;
+  };
+  curatorNote?: { text: string; authorName: string } | null;
+  verifiedFacts?: VerifiedFact[];
+}
+
+export function updateCreativeService(
+  adminPassword: string,
+  creativeId: string,
+  serviceId: string,
+  patch: ServicePatch,
+): Promise<{ creatives: CreativeRegistryEntry[] }> {
+  return apiRequest(`/api/admin/creatives/${creativeId}/services/${serviceId}`, {
+    method: "PATCH",
+    body: patch,
+    adminPassword,
+  });
+}
+
+export function deleteCreativeService(
+  adminPassword: string,
+  creativeId: string,
+  serviceId: string,
+): Promise<{ creatives: CreativeRegistryEntry[] }> {
+  return apiRequest(`/api/admin/creatives/${creativeId}/services/${serviceId}`, {
+    method: "DELETE",
+    adminPassword,
+  });
+}
 
 // AI matching — reads the given demo's Event brief and asks Claude to
 // shortlist fitting creatives from the live (Active-only) registry. This

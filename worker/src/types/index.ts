@@ -136,6 +136,14 @@ export interface CreativeRegistryEntry {
   standardServicesPriceRange: string;
   technicalRequirements: string;
 
+  // ---- Schema v2 additions (Sept 2026) — see the block above. Optional
+  // so every pre-existing KV record (and any code that hasn't been
+  // touched yet) still type-checks; `services` absent or empty means
+  // this entry hasn't been migrated yet (see migrateCreativeToServices).
+  services?: CreativeService[];
+  curatorNote?: CuratorNote | null;
+  verifiedFacts?: VerifiedFact[];
+
   addedAt: number;
   updatedAt: number;
 }
@@ -148,6 +156,125 @@ export type PublicCreativeProfile = Pick<
   CreativeRegistryEntry,
   "id" | "displayName" | "creativeFields" | "creativeServices" | "workDescription" | "website" | "socialMediaLink"
 >;
+
+// ---- Registry schema v2 (Sept 2026) — per-service hard facts, per the
+// "Selecctive — AI, Data & Matching" design doc Mario shared. Lamha's
+// Creative Registry is being treated as an early prototype of
+// Selecctive's own eventual schema, so this follows that doc closely:
+// - Creative Services become first-class records, each with their own
+//   hard facts, instead of one shared blob per creative.
+// - Every hard fact carries a trust tier (Fact<T>) so "unknown" and
+//   "confirmed no" are distinguishable — the doc is explicit that
+//   missing information must never be treated as a hard no.
+// - Curator notes (free text, judgment) and verified facts (structured,
+//   team-confirmed claims) are two different things — see the schema
+//   proposal doc (claude/lamha-creative-schema-proposal.md) for the
+//   full reasoning.
+//
+// This is deliberately ADDITIVE to CreativeRegistryEntry below: the
+// legacy flat fields (creativeFields, creativeServices, workDescription,
+// standardServicesPriceRange, technicalRequirements) are untouched and
+// still populated for every existing entry. Nothing reads/writes those
+// as the source of truth going forward — `services` is — but keeping
+// them in place means the migration to this shape (see
+// migrateCreativeToServices in lib/kv.ts) can never lose data, and is
+// safe to re-run.
+
+export type FactSource = "self_reported" | "ai_inferred" | "team_verified";
+
+// value: null means UNKNOWN, never treated as "no" — the whole point of
+// this wrapper. confidence is only meaningful when source is
+// "ai_inferred".
+export interface Fact<T> {
+  value: T | null;
+  source: FactSource | null;
+  confidence?: number;
+  updatedAt: number;
+}
+
+export type TravelWillingness = "local" | "regional" | "worldwide";
+
+// The hard facts common to every Creative Service, regardless of
+// field — these are what the (not-yet-built) feasibility filter will
+// check a brief's hard requirements against. Field-specific extras
+// (a DJ's "brings own equipment," an installation artist's
+// "fabrication in-house vs partners") are deliberately out of scope for
+// this round — see the schema proposal doc, open question #2.
+export interface ServiceHardFacts {
+  minimumBudget: Fact<{ amount: number; currency: string }>;
+  travelWillingness: Fact<TravelWillingness>;
+  outdoorCapable: Fact<boolean>;
+  leadTimeDays: Fact<number>;
+}
+
+// AI's own interpretation of what a service is about — not asserted as
+// fact, allowed to be uncertain, and always traceable to what it was
+// derived from. Regenerated as evidence changes rather than set once.
+export interface SemanticTag {
+  tag: string;
+  confidence: number; // 0-100 — confidence in the INTERPRETATION, not a match score
+  sourceEvidence: string[];
+  updatedAt: number;
+}
+
+// Free-text judgment from Mario's team — "great with VIP clients,"
+// "installations stronger than tabletop work" — fed into matching as
+// explicitly trusted internal commentary, distinct from and weighted
+// above the AI's own inferred tags. Can live at profile level and/or
+// per service.
+export interface CuratorNote {
+  text: string;
+  authorName: string;
+  updatedAt: number;
+}
+
+// A structured claim the team has actually verified, as opposed to
+// something self-reported or AI-guessed — starting with past clients
+// (Mario, Sept 2026: "verify if the creative has really worked with
+// company X Y Z"). `kind` is deliberately open-ended so more claim
+// types can be added later without a redesign.
+export interface VerifiedFact {
+  id: string;
+  kind: "past_client" | "other";
+  label: string;
+  verifiedBy: string;
+  verifiedAt: number;
+  note?: string;
+}
+
+// One service a creative offers — the new central matching unit
+// (per the source doc: "the Creative Service is the central unit").
+// A match result now points at a specific CreativeService, not just a
+// creative profile.
+export interface CreativeService {
+  id: string;
+  creativeField: string; // exactly one field per service
+  serviceName: string;
+  status: "active" | "inactive";
+
+  hardFacts: ServiceHardFacts;
+  workDescription: string; // free text — evidence for the AI layer, not itself a hard fact
+
+  aiSemanticTags: SemanticTag[];
+  curatorNote: CuratorNote | null;
+  verifiedFacts: VerifiedFact[];
+
+  addedAt: number;
+  updatedAt: number;
+}
+
+// A never-populated ServiceHardFacts, for constructing a new service
+// with every hard fact starting at "unknown" rather than a guessed
+// default — used both by the add-service route and the legacy migration.
+export function emptyServiceHardFacts(now: number): ServiceHardFacts {
+  const blank = <T,>(): Fact<T> => ({ value: null, source: null, updatedAt: now });
+  return {
+    minimumBudget: blank(),
+    travelWillingness: blank(),
+    outdoorCapable: blank(),
+    leadTimeDays: blank(),
+  };
+}
 
 export interface DemoIndexEntry {
   id: string;
@@ -180,12 +307,17 @@ export interface Env {
 // Admin-only, never surfaced to a client: matching is Mario's own sourcing
 // tool, not something that populates a demo's (always-fictional) Season
 // Agenda.
+// Points at one specific CreativeService, not a whole creative profile
+// — matches the schema v2 model where the service is the central
+// matching unit (see the block above and the schema proposal doc).
 export interface CreativeMatch {
-  id: string;
+  creativeId: string;
+  serviceId: string;
   displayName: string;
-  creativeFields: string[];
-  creativeServices: string[];
+  creativeField: string;
+  serviceName: string;
   workDescription: string;
+  curatorNote: string | null;
   email: string;
   phoneCountryCode: string;
   phone: string;

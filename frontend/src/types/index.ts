@@ -133,19 +133,91 @@ export interface CreativeRegistryEntry {
   standardServicesPriceRange: string;
   technicalRequirements: string;
 
+  // ---- Schema v2 additions (Sept 2026) — per-service hard facts, per
+  // the "Selecctive — AI, Data & Matching" doc. See worker's mirror of
+  // this type for the full reasoning. Optional so older records (not
+  // yet migrated) still type-check; empty/absent `services` means this
+  // entry hasn't been migrated yet.
+  services?: CreativeService[];
+  curatorNote?: CuratorNote | null;
+  verifiedFacts?: VerifiedFact[];
+
   addedAt: number;
   updatedAt: number;
 }
 
-// One AI-suggested creative for a demo's event brief — admin-only, never
+export type FactSource = "self_reported" | "ai_inferred" | "team_verified";
+
+export interface Fact<T> {
+  value: T | null;
+  source: FactSource | null;
+  confidence?: number;
+  updatedAt: number;
+}
+
+export type TravelWillingness = "local" | "regional" | "worldwide";
+
+export interface ServiceHardFacts {
+  minimumBudget: Fact<{ amount: number; currency: string }>;
+  travelWillingness: Fact<TravelWillingness>;
+  outdoorCapable: Fact<boolean>;
+  leadTimeDays: Fact<number>;
+}
+
+export interface SemanticTag {
+  tag: string;
+  confidence: number;
+  sourceEvidence: string[];
+  updatedAt: number;
+}
+
+export interface CuratorNote {
+  text: string;
+  authorName: string;
+  updatedAt: number;
+}
+
+export interface VerifiedFact {
+  id: string;
+  kind: "past_client" | "other";
+  label: string;
+  verifiedBy: string;
+  verifiedAt: number;
+  note?: string;
+}
+
+export interface CreativeService {
+  id: string;
+  creativeField: string;
+  serviceName: string;
+  status: "active" | "inactive";
+
+  hardFacts: ServiceHardFacts;
+  workDescription: string;
+
+  aiSemanticTags: SemanticTag[];
+  curatorNote: CuratorNote | null;
+  verifiedFacts: VerifiedFact[];
+
+  addedAt: number;
+  updatedAt: number;
+}
+
+// One AI-suggested creative service for a demo's event brief — admin-only, never
 // surfaced to a client. See the matching worker route for why this stays
 // separate from a demo's (always-fictional) Programming/Season Agenda.
+// Points at one specific CreativeService, not a whole creative profile
+// — matches the schema v2 model where the service is the central
+// matching unit. `creativeId`/`serviceId` are separate so the admin UI
+// can link back to either.
 export interface CreativeMatch {
-  id: string;
+  creativeId: string;
+  serviceId: string;
   displayName: string;
-  creativeFields: string[];
-  creativeServices: string[];
+  creativeField: string;
+  serviceName: string;
   workDescription: string;
+  curatorNote: string | null;
   email: string;
   phoneCountryCode: string;
   phone: string;

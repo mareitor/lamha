@@ -1,11 +1,24 @@
 import { Hono, type Context } from "hono";
-import type { CreativeRegistryEntry, DemoRecord, Env, InvoiceEntry, Location, ProgrammingEntry } from "../types";
+import type {
+  CreativeRegistryEntry,
+  CreativeService,
+  DemoRecord,
+  Env,
+  Fact,
+  InvoiceEntry,
+  Location,
+  ProgrammingEntry,
+  TravelWillingness,
+  VerifiedFact,
+} from "../types";
+import { emptyServiceHardFacts } from "../types";
 import {
   createDemo,
   deleteDemo,
   getCreativeRegistry,
   getDemo,
   getIndex,
+  migrateCreativeToServices,
   putCreativeRegistry,
   putDemo,
   removeIndexEntry,
@@ -418,6 +431,14 @@ function buildCreativeEntry(body: Partial<CreativeRegistryEntry>, now: number): 
     whatsappForBusiness: body.whatsappForBusiness ?? null,
     standardServicesPriceRange: body.standardServicesPriceRange ?? "",
     technicalRequirements: body.technicalRequirements ?? "",
+    // Schema v2 (Sept 2026) — profile-level curator note, settable from
+    // the moment a creative is added, not just via a later edit.
+    // `services` is deliberately left unset here (rather than []): that
+    // ambiguity is exactly what migrateCreativeToServices's
+    // Array.isArray(entry.services) check relies on to tell "never
+    // touched" apart from "migrated, has none".
+    curatorNote: body.curatorNote ?? null,
+    verifiedFacts: Array.isArray(body.verifiedFacts) ? body.verifiedFacts : [],
     addedAt: now,
     updatedAt: now,
   };
@@ -468,6 +489,25 @@ adminRoutes.post("/creatives/import", async (c) => {
 
   await putCreativeRegistry(c.env, registry);
   return c.json({ creatives: registry, added, skipped });
+});
+
+// One-time (idempotent, safe to re-run) migration: adds the new
+// per-service schema (services[]/curatorNote/verifiedFacts) to every
+// registry entry that doesn't have it yet. Purely additive — see
+// migrateCreativeToServices in lib/kv.ts, which never touches an entry
+// that already has a `services` array. Registered as its own route
+// rather than running automatically so this runs once, deliberately,
+// right after the schema v2 deploy — not silently on every read.
+adminRoutes.post("/creatives/migrate-to-services", async (c) => {
+  const registry = await getCreativeRegistry(c.env);
+  let migrated = 0;
+  const result = registry.map((entry) => {
+    if (Array.isArray(entry.services)) return entry;
+    migrated++;
+    return migrateCreativeToServices(entry);
+  });
+  await putCreativeRegistry(c.env, result);
+  return c.json({ creatives: result, migrated });
 });
 
 // Bulk status update — flip many creatives to Active/Inactive in one call
@@ -549,6 +589,147 @@ adminRoutes.delete("/creatives/:itemId/permanent", async (c) => {
   return c.json({ creatives: updated });
 });
 
+// ---- Creative Services (schema v2, Sept 2026) — each service a
+// creative offers is its own record with its own hard facts (see
+// types/index.ts's CreativeService/Fact<T>). Every route below reads
+// the target entry, migrates it in-memory first (migrateCreativeToServices
+// is a no-op once an entry already has a `services` array — safe to call
+// unconditionally) so these work immediately even on an entry Mario
+// hasn't run the one-time migration route on yet, then writes the whole
+// registry back, same pattern as the rest of this file. ----
+
+interface ServiceHardFactPatch {
+  minimumBudget?: Partial<Fact<{ amount: number; currency: string }>>;
+  travelWillingness?: Partial<Fact<TravelWillingness>>;
+  outdoorCapable?: Partial<Fact<boolean>>;
+  leadTimeDays?: Partial<Fact<number>>;
+}
+
+interface ServicePatchBody {
+  creativeField?: string;
+  serviceName?: string;
+  status?: "active" | "inactive";
+  workDescription?: string;
+  hardFacts?: ServiceHardFactPatch;
+  curatorNote?: { text: string; authorName: string } | null;
+  verifiedFacts?: VerifiedFact[];
+}
+
+adminRoutes.post("/creatives/:id/services", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<Partial<ServicePatchBody>>().catch((): Partial<ServicePatchBody> => ({}));
+  if (!body.creativeField || !body.serviceName) {
+    return c.json({ error: "creativeField and serviceName are required" }, 400);
+  }
+
+  const registry = await getCreativeRegistry(c.env);
+  let found = false;
+  const now = Date.now();
+  const updated = registry.map((entry) => {
+    if (entry.id !== id) return entry;
+    found = true;
+    const migrated = migrateCreativeToServices(entry);
+    const service: CreativeService = {
+      id: generateItemId(),
+      creativeField: body.creativeField!,
+      serviceName: body.serviceName!,
+      status: body.status ?? "active",
+      hardFacts: emptyServiceHardFacts(now),
+      workDescription: body.workDescription ?? "",
+      aiSemanticTags: [],
+      curatorNote: null,
+      verifiedFacts: [],
+      addedAt: now,
+      updatedAt: now,
+    };
+    return { ...migrated, services: [...(migrated.services ?? []), service], updatedAt: now };
+  });
+  if (!found) return c.json({ error: "not_found" }, 404);
+  await putCreativeRegistry(c.env, updated);
+  return c.json({ creatives: updated });
+});
+
+// Partial-merge for status/workDescription/field/name/hardFacts (each
+// hard fact patched individually — sending travelWillingness doesn't
+// clobber minimumBudget), full-replace for curatorNote/verifiedFacts
+// (they're small, whole-object concepts on the client side, not worth
+// a merge protocol). Every touched Fact<T> gets a fresh updatedAt.
+adminRoutes.patch("/creatives/:id/services/:serviceId", async (c) => {
+  const id = c.req.param("id");
+  const serviceId = c.req.param("serviceId");
+  const body = await c.req.json<ServicePatchBody>().catch((): ServicePatchBody => ({}));
+
+  const registry = await getCreativeRegistry(c.env);
+  let foundCreative = false;
+  let foundService = false;
+  const now = Date.now();
+  const updated = registry.map((entry) => {
+    if (entry.id !== id) return entry;
+    foundCreative = true;
+    const migrated = migrateCreativeToServices(entry);
+    const services = (migrated.services ?? []).map((service) => {
+      if (service.id !== serviceId) return service;
+      foundService = true;
+
+      const hardFacts = body.hardFacts
+        ? {
+            minimumBudget: body.hardFacts.minimumBudget
+              ? { ...service.hardFacts.minimumBudget, ...body.hardFacts.minimumBudget, updatedAt: now }
+              : service.hardFacts.minimumBudget,
+            travelWillingness: body.hardFacts.travelWillingness
+              ? { ...service.hardFacts.travelWillingness, ...body.hardFacts.travelWillingness, updatedAt: now }
+              : service.hardFacts.travelWillingness,
+            outdoorCapable: body.hardFacts.outdoorCapable
+              ? { ...service.hardFacts.outdoorCapable, ...body.hardFacts.outdoorCapable, updatedAt: now }
+              : service.hardFacts.outdoorCapable,
+            leadTimeDays: body.hardFacts.leadTimeDays
+              ? { ...service.hardFacts.leadTimeDays, ...body.hardFacts.leadTimeDays, updatedAt: now }
+              : service.hardFacts.leadTimeDays,
+          }
+        : service.hardFacts;
+
+      return {
+        ...service,
+        ...(body.creativeField !== undefined ? { creativeField: body.creativeField } : {}),
+        ...(body.serviceName !== undefined ? { serviceName: body.serviceName } : {}),
+        ...(body.status !== undefined ? { status: body.status } : {}),
+        ...(body.workDescription !== undefined ? { workDescription: body.workDescription } : {}),
+        ...(body.curatorNote !== undefined
+          ? { curatorNote: body.curatorNote ? { ...body.curatorNote, updatedAt: now } : null }
+          : {}),
+        ...(body.verifiedFacts !== undefined ? { verifiedFacts: body.verifiedFacts } : {}),
+        hardFacts,
+        updatedAt: now,
+      };
+    });
+    return { ...migrated, services, updatedAt: now };
+  });
+  if (!foundCreative || !foundService) return c.json({ error: "not_found" }, 404);
+  await putCreativeRegistry(c.env, updated);
+  return c.json({ creatives: updated });
+});
+
+adminRoutes.delete("/creatives/:id/services/:serviceId", async (c) => {
+  const id = c.req.param("id");
+  const serviceId = c.req.param("serviceId");
+  const registry = await getCreativeRegistry(c.env);
+  let foundCreative = false;
+  const now = Date.now();
+  const updated = registry.map((entry) => {
+    if (entry.id !== id) return entry;
+    foundCreative = true;
+    const migrated = migrateCreativeToServices(entry);
+    return {
+      ...migrated,
+      services: (migrated.services ?? []).filter((s) => s.id !== serviceId),
+      updatedAt: now,
+    };
+  });
+  if (!foundCreative) return c.json({ error: "not_found" }, 404);
+  await putCreativeRegistry(c.env, updated);
+  return c.json({ creatives: updated });
+});
+
 // AI matching (Sept 2026): given one demo's Event brief, ask Claude to
 // shortlist the best-fitting creatives from the *real* registry — Active
 // only, since Inactive means Mario hasn't reviewed it yet. This is
@@ -575,29 +756,50 @@ adminRoutes.post("/demos/:id/match-creatives", async (c) => {
     return c.json({ error: "This demo's Event tab has no name/type/description yet — fill that in first, then try matching." }, 400);
   }
 
+  // Service-level matching (schema v2): the candidate pool is every
+  // ACTIVE service on every ACTIVE creative, not the creative profile as
+  // a whole — a creative offering three services can surface up to three
+  // times if more than one genuinely fits. Migrated in-memory only
+  // (migrateCreativeToServices is a no-op if already migrated) so this
+  // works even before Mario runs the one-time migration route, though
+  // he should still run it once for stable service ids going forward.
   const registry = await getCreativeRegistry(c.env);
-  const active = registry.filter((e) => e.status === "active");
-  if (active.length === 0) {
+  const activeCreatives = registry
+    .map((e) => migrateCreativeToServices(e))
+    .filter((e) => e.status === "active");
+  if (activeCreatives.length === 0) {
     return c.json({ error: "No Active creatives in the registry yet — review some from the Creative Registry page first." }, 400);
+  }
+
+  const candidatePairs = activeCreatives.flatMap((creative) =>
+    (creative.services ?? [])
+      .filter((service) => service.status === "active")
+      .map((service) => ({ creative, service })),
+  );
+  if (candidatePairs.length === 0) {
+    return c.json(
+      { error: "No active creative services in the registry yet — add services to your Active creatives first." },
+      400,
+    );
   }
 
   // Client-safe-ish summary for the model — it only needs enough to judge
   // fit, not contact/pricing details (those get re-attached from the
   // registry afterwards, for Mario's own use, never sent to the model).
-  const candidates = active.map((e) => ({
-    id: e.id,
-    name: e.displayName,
-    fields: e.creativeFields,
-    services: e.creativeServices,
-    description: e.workDescription,
+  const candidates = candidatePairs.map(({ creative, service }) => ({
+    id: service.id,
+    name: creative.displayName,
+    field: service.creativeField,
+    service: service.serviceName,
+    description: service.workDescription,
   }));
 
-  const prompt = `You are helping an event producer shortlist creative acts/suppliers for a specific event from their supplier database.
+  const prompt = `You are helping an event producer shortlist creative acts/suppliers for a specific event from their supplier database. Each candidate below is one specific SERVICE a creative offers, not their whole profile — the same creative may appear more than once if more than one of their services genuinely fits.
 
 Event brief:
 ${brief}
 
-Candidate creatives (JSON):
+Candidate creative services (JSON):
 ${JSON.stringify(candidates)}
 
 Pick the best-fitting candidates for this event, ranked best first. Return ONLY a JSON array (no prose, no markdown code fences), each item shaped exactly as:
@@ -640,23 +842,25 @@ Return at most 8 candidates, and only ones that are a genuinely reasonable fit f
     return c.json({ error: "Got a response back from the AI but couldn't make sense of it — try again." }, 502);
   }
 
-  const byId = new Map(active.map((e) => [e.id, e]));
+  const byServiceId = new Map(candidatePairs.map((pair) => [pair.service.id, pair]));
   const matches = parsed
-    .filter((m) => byId.has(m.id))
+    .filter((m) => byServiceId.has(m.id))
     .map((m) => {
-      const e = byId.get(m.id)!;
+      const { creative, service } = byServiceId.get(m.id)!;
       return {
-        id: e.id,
-        displayName: e.displayName,
-        creativeFields: e.creativeFields,
-        creativeServices: e.creativeServices,
-        workDescription: e.workDescription,
-        email: e.email,
-        phoneCountryCode: e.phoneCountryCode,
-        phone: e.phone,
-        whatsappForBusiness: e.whatsappForBusiness,
-        website: e.website,
-        socialMediaLink: e.socialMediaLink,
+        creativeId: creative.id,
+        serviceId: service.id,
+        displayName: creative.displayName,
+        creativeField: service.creativeField,
+        serviceName: service.serviceName,
+        workDescription: service.workDescription,
+        curatorNote: service.curatorNote?.text ?? creative.curatorNote?.text ?? null,
+        email: creative.email,
+        phoneCountryCode: creative.phoneCountryCode,
+        phone: creative.phone,
+        whatsappForBusiness: creative.whatsappForBusiness,
+        website: creative.website,
+        socialMediaLink: creative.socialMediaLink,
         fitScore: Math.max(0, Math.min(100, Math.round(m.fitScore ?? 0))),
         reason: m.reason ?? "",
       };

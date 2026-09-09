@@ -248,6 +248,22 @@ export function deleteCreative(
   return apiRequest(`/api/admin/creatives/${itemId}`, { method: "DELETE", adminPassword });
 }
 
+// Bulk status change — flips many registry entries to Active/Inactive in
+// one call, e.g. reviewing a big import batch and marking a filtered set
+// Active at once instead of one edit-form save per entry. Never touches
+// archived (trashed) entries.
+export function bulkUpdateCreativeStatus(
+  adminPassword: string,
+  ids: string[],
+  status: "active" | "inactive",
+): Promise<{ creatives: CreativeRegistryEntry[]; updated: number }> {
+  return apiRequest("/api/admin/creatives/bulk-status", {
+    method: "PATCH",
+    body: { ids, status },
+    adminPassword,
+  });
+}
+
 export function restoreCreative(
   adminPassword: string,
   itemId: string,

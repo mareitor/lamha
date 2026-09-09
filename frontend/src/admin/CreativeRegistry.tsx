@@ -299,6 +299,8 @@ export function CreativeRegistry() {
   const [importResult, setImportResult] = useState<{ added: number; skipped: string[] } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const load = useCallback(async () => {
     if (!password) return;
@@ -435,6 +437,44 @@ export function CreativeRegistry() {
     setShowForm(false);
     setEditingId(null);
     setConfirmDeleteId(null);
+    setSelectedIds(new Set());
+  }
+
+  // Bulk select/status-change — lets Mario select every creative matching
+  // his current search/filter (e.g. "Inactive only") and flip them all
+  // Active in one action, rather than opening each edit form individually.
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible() {
+    if (!visibleCreatives) return;
+    setSelectedIds((prev) => {
+      const allSelected = visibleCreatives.length > 0 && visibleCreatives.every((e) => prev.has(e.id));
+      const next = new Set(prev);
+      for (const e of visibleCreatives) {
+        if (allSelected) next.delete(e.id);
+        else next.add(e.id);
+      }
+      return next;
+    });
+  }
+
+  async function bulkSetStatus(status: "active" | "inactive") {
+    if (!password || selectedIds.size === 0) return;
+    setBulkUpdating(true);
+    try {
+      const { creatives } = await adminApi.bulkUpdateCreativeStatus(password, [...selectedIds], status);
+      setCreatives(creatives);
+      setSelectedIds(new Set());
+    } finally {
+      setBulkUpdating(false);
+    }
   }
 
   // Bulk import — e.g. the 45-row batch exported from the real
@@ -808,6 +848,16 @@ export function CreativeRegistry() {
 
       {!showForm && creatives && creatives.length > 0 && (
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+          {!showTrash && visibleCreatives && visibleCreatives.length > 0 && (
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={visibleCreatives.every((e) => selectedIds.has(e.id))}
+                onChange={toggleSelectAllVisible}
+              />
+              Select all
+            </label>
+          )}
           <input
             placeholder="Search by name, contact, field, or service…"
             value={search}
@@ -845,6 +895,48 @@ export function CreativeRegistry() {
         </div>
       )}
 
+      {!showTrash && selectedIds.size > 0 && (
+        <div
+          className="card"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 16,
+            padding: "10px 16px",
+            background: "var(--color-pill-bg)",
+          }}
+        >
+          <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+            {selectedIds.size} selected
+          </span>
+          <button
+            className="btn-secondary"
+            style={{ fontSize: "0.8rem", padding: "6px 12px" }}
+            disabled={bulkUpdating}
+            onClick={() => bulkSetStatus("active")}
+          >
+            {bulkUpdating ? "Updating…" : "Mark Active"}
+          </button>
+          <button
+            className="btn-secondary"
+            style={{ fontSize: "0.8rem", padding: "6px 12px" }}
+            disabled={bulkUpdating}
+            onClick={() => bulkSetStatus("inactive")}
+          >
+            Mark Inactive
+          </button>
+          <button
+            className="btn-secondary"
+            style={{ fontSize: "0.8rem", padding: "6px 12px", marginLeft: "auto" }}
+            disabled={bulkUpdating}
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
       {!showForm && visibleCreatives === null && !error && <p>Loading…</p>}
       {!showForm && visibleCreatives && visibleCreatives.length === 0 && (
         <p>
@@ -868,6 +960,14 @@ export function CreativeRegistry() {
             const priceSummary = summarizePriceRange(entry.standardServicesPriceRange);
             return (
               <div key={entry.id} className="card" style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+                {!showTrash && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(entry.id)}
+                    onChange={() => toggleSelect(entry.id)}
+                    style={{ marginTop: 4, flexShrink: 0, width: 16, height: 16, cursor: "pointer" }}
+                  />
+                )}
                 <div
                   style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
                   onClick={() => setExpandedId((v) => (v === entry.id ? null : entry.id))}

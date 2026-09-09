@@ -470,6 +470,40 @@ adminRoutes.post("/creatives/import", async (c) => {
   return c.json({ creatives: registry, added, skipped });
 });
 
+// Bulk status update — flip many creatives to Active/Inactive in one call
+// (e.g. Mario reviewing a big import batch and marking a filtered set
+// Active at once, rather than one edit-form save per entry). Only ever
+// touches status + updatedAt; every other field is left alone, and an
+// already-archived (trashed) entry is skipped rather than revived —
+// that stays a deliberate one-at-a-time Restore action. Registered
+// before the "/creatives/:itemId" param route below so the literal path
+// "bulk-status" can never be mistaken for an :itemId value.
+adminRoutes.patch("/creatives/bulk-status", async (c) => {
+  const body = await c.req
+    .json<{ ids?: string[]; status?: "active" | "inactive" }>()
+    .catch((): { ids?: string[]; status?: "active" | "inactive" } => ({}));
+  const ids = Array.isArray(body.ids) ? body.ids : [];
+  if (body.status !== "active" && body.status !== "inactive") {
+    return c.json({ error: "status must be 'active' or 'inactive'" }, 400);
+  }
+  if (ids.length === 0) {
+    return c.json({ error: "No ids provided" }, 400);
+  }
+
+  const idSet = new Set(ids);
+  const registry = await getCreativeRegistry(c.env);
+  const now = Date.now();
+  let updated = 0;
+  const result = registry.map((entry) => {
+    if (!idSet.has(entry.id) || entry.status === "archived") return entry;
+    updated++;
+    return { ...entry, status: body.status!, updatedAt: now };
+  });
+
+  await putCreativeRegistry(c.env, result);
+  return c.json({ creatives: result, updated });
+});
+
 adminRoutes.patch("/creatives/:itemId", async (c) => {
   const itemId = c.req.param("itemId");
   const body = await c.req.json<Partial<CreativeRegistryEntry>>();

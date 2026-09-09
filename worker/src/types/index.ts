@@ -265,6 +265,17 @@ export interface CreativeService {
   // check it. Empty string means no free-text answer was given.
   budgetNote: string;
 
+  // Sept 9, round 2 — Mario's feedback: the migrated-over `workDescription`
+  // was showing up identical on every service (same legacy bio, copied
+  // N times), and having the intake flow let a creative "edit" it just
+  // meant overwriting that shared text once per service. Instead:
+  // `workDescription` stays as-is, untouched by the intake flow (admin-
+  // editable only, via CreativeServicesPanel); this is a NEW, separate,
+  // always-starts-empty field the intake flow writes to — "what's
+  // specific about you for this particular service" — additive rather
+  // than a rewrite of what they already told us.
+  serviceHighlight: string;
+
   aiSemanticTags: SemanticTag[];
   curatorNote: CuratorNote | null;
   verifiedFacts: VerifiedFact[];

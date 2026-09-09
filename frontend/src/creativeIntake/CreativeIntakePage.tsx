@@ -27,15 +27,22 @@ import "./creativeIntake.css";
 // per-service, but gets a "Same as last one" shortcut after the first.
 //
 // Round 2 (Sept 9, feedback after the first version shipped): a creative
-// can now also fix their own name and rewrite each service's description
-// (so services stop showing identical migrated-over bio text); an
-// "Overview" screen up front shows what fields/services they're on file
-// for before diving into questions; the outdoor question and the
+// can now also fix their own name; an "Overview" screen up front shows
+// their existing bio plus what fields/services they're on file for
+// before diving into questions; the outdoor question and the
 // budget/lead-time wording adapt per service (see
 // serviceQuestionProfiles.ts); budget accepts a free-text "describe it
 // instead" answer that the Worker best-effort parses with AI (tagged
 // ai_inferred, never self_reported — see that route); and Back now works
 // from every step, not just between services.
+//
+// Round 2b (Sept 9, same day — Mario noticed every service was showing
+// the identical migrated bio in an editable box): rather than let the
+// intake flow "edit" that shared bio (which just meant overwriting the
+// same text N times), the bio is now shown once, read-only, on the
+// Overview screen ("here's what we know about you"). Each service step
+// instead asks for something new and additive — serviceHighlight, which
+// starts empty and is genuinely specific to that one service.
 
 const TRAVEL_OPTIONS: { value: TravelWillingness; label: string; hint: string }[] = [
   { value: "local", label: "Local only", hint: "Just your own city" },
@@ -44,7 +51,7 @@ const TRAVEL_OPTIONS: { value: TravelWillingness; label: string; hint: string }[
 ];
 
 interface ServiceFormState {
-  description: string;
+  highlight: string;
   budgetMode: "number" | "text";
   budgetAmount: string;
   budgetCurrency: string;
@@ -56,7 +63,7 @@ interface ServiceFormState {
 function formFromService(service: IntakeService): ServiceFormState {
   const hasBudgetNote = !!service.budgetNote?.trim();
   return {
-    description: service.workDescription,
+    highlight: service.serviceHighlight,
     budgetMode: hasBudgetNote ? "text" : "number",
     budgetAmount:
       service.hardFacts.minimumBudget.value != null ? String(service.hardFacts.minimumBudget.value.amount) : "",
@@ -223,7 +230,7 @@ export function CreativeIntakePage() {
       }
 
       const updated = await intakeApi.updateService(creativeId, service.id, {
-        workDescription: form.description,
+        serviceHighlight: form.highlight,
         budgetNote: budgetNoteToSave,
         hardFacts: {
           minimumBudget: { value: minimumBudgetValue },
@@ -304,9 +311,9 @@ export function CreativeIntakePage() {
             </div>
           )}
           <p style={{ opacity: 0.78, fontSize: "1.02rem" }}>
-            A couple of quick questions so we can match you with the right gigs — the ones that actually fit your
-            budget, your travel range, and your timeline. Takes about two minutes, skip anything you're not sure
-            about, and you can always come back to this exact link later.
+            A couple of quick questions so we can match you with the right projects or events — the ones that
+            actually fit your budget, your travel range, and your timeline. Takes about two minutes, skip anything
+            you're not sure about, and you can always come back to this exact link later.
           </p>
           <button onClick={() => setStepIndex(1)}>Let's go →</button>
         </div>
@@ -314,7 +321,18 @@ export function CreativeIntakePage() {
 
       {step.kind === "overview" && (
         <div className="card intake-card">
-          <p className="intake-eyebrow">Here's what we have you down for</p>
+          <p className="intake-eyebrow">Here's what we know about you</p>
+          {view.bio && view.bio.trim() ? (
+            <blockquote className="intake-bio-quote">{view.bio}</blockquote>
+          ) : (
+            <p style={{ opacity: 0.6, fontSize: "0.85rem", fontStyle: "italic", marginBottom: 18 }}>
+              We don't have a bio on file for you yet — no worries, you can still go ahead below.
+            </p>
+          )}
+
+          <p className="intake-eyebrow" style={{ marginTop: 22 }}>
+            Now we want to know more about the specific projects or events you take on
+          </p>
           <h2 style={{ marginBottom: 4 }}>
             {services.length} {services.length === 1 ? "service" : "services"} across{" "}
             {groupByField(services).length} {groupByField(services).length === 1 ? "category" : "categories"}
@@ -380,20 +398,21 @@ export function CreativeIntakePage() {
       {activeService && activeForm && activeProfile && (
         <div className="card intake-card">
           <p className="intake-eyebrow">
-            {activeServiceIndex + 1} of {services.length} · {activeService.creativeField}
+            {activeServiceIndex + 1} of {services.length}
           </p>
-          <h2 style={{ marginBottom: 12 }}>{activeService.serviceName}</h2>
+          <h2 style={{ marginBottom: 2 }}>{activeService.serviceName}</h2>
+          <p className="intake-service-subline">Let's get to know more about your creative service.</p>
 
           <div style={{ marginBottom: 18 }}>
-            <label>Tell us about you, specifically for {activeService.serviceName}</label>
+            <label>Anything specific about your {activeService.serviceName} we should know?</label>
             <textarea
               rows={3}
-              placeholder="A sentence or two — this doesn't need to match your other services"
-              value={activeForm.description}
+              placeholder="Optional — a sentence or two just for this one, on top of the bio you already gave us"
+              value={activeForm.highlight}
               onChange={(e) =>
                 setServiceForms((f) => ({
                   ...f,
-                  [activeService.id]: { ...activeForm, description: e.target.value },
+                  [activeService.id]: { ...activeForm, highlight: e.target.value },
                 }))
               }
             />
@@ -405,7 +424,7 @@ export function CreativeIntakePage() {
               className="btn-secondary"
               style={{ fontSize: "0.78rem", padding: "6px 12px", marginBottom: 16 }}
               onClick={() => copyFromPrevious(activeServiceIndex)}
-              title="Copies budget, travel-adjacent details, and lead time from the last service — not the description above"
+              title="Copies budget, travel-adjacent details, and lead time from the last service — not the note above"
             >
               ↺ Same budget/timing as last one
             </button>
@@ -537,7 +556,7 @@ export function CreativeIntakePage() {
           <h1 style={{ marginBottom: 8 }}>Thanks, {firstName}!</h1>
           <p style={{ opacity: 0.78, fontSize: "1.02rem" }}>
             You've told us about {services.length === 1 ? "your service" : `all ${services.length} of your services`}.
-            This helps us bring you the gigs that are actually a fit. Bookmark this link — you can come back and
+            This helps us bring you the projects or events that are actually a fit. Bookmark this link — you can come back and
             update anything, anytime.
           </p>
           <button type="button" className="btn-secondary" onClick={goBack} style={{ marginTop: 8 }}>

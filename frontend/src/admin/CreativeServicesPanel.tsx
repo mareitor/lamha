@@ -37,6 +37,7 @@ function emptyEditForm(service: CreativeService) {
     leadTimeDays: service.hardFacts.leadTimeDays.value != null ? String(service.hardFacts.leadTimeDays.value) : "",
     curatorNoteText: service.curatorNote?.text ?? "",
     budgetNote: service.budgetNote ?? "",
+    serviceHighlight: service.serviceHighlight ?? "",
     verifiedFacts: service.verifiedFacts,
   };
 }
@@ -104,6 +105,7 @@ function ServiceCard({
         status: form.status,
         workDescription: form.workDescription,
         budgetNote: form.budgetNote,
+        serviceHighlight: form.serviceHighlight,
         hardFacts: {
           minimumBudget:
             form.minBudgetAmount.trim() === ""
@@ -221,6 +223,20 @@ function ServiceCard({
               }}
             >
               <strong style={{ fontWeight: 600 }}>Curator's note:</strong> {service.curatorNote.text}
+            </p>
+          )}
+          {service.serviceHighlight && (
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "0.78rem",
+                background: "var(--color-pill-bg)",
+                borderRadius: 6,
+                padding: "5px 9px",
+              }}
+              title="What they wrote for this specific service during the self-intake flow — separate from the general Work description above"
+            >
+              <strong style={{ fontWeight: 600 }}>Specific to this service:</strong> {service.serviceHighlight}
             </p>
           )}
           {service.budgetNote && (
@@ -344,6 +360,16 @@ function ServiceCard({
               rows={2}
               value={form.curatorNoteText}
               onChange={(e) => setForm((f) => ({ ...f, curatorNoteText: e.target.value }))}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.72rem" }}>Specific to this service (from the intake flow, editable)</label>
+            <textarea
+              rows={2}
+              placeholder="Filled in automatically if they wrote something specific to this service"
+              value={form.serviceHighlight}
+              onChange={(e) => setForm((f) => ({ ...f, serviceHighlight: e.target.value }))}
             />
           </div>
 

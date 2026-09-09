@@ -47,6 +47,7 @@ export function migrateCreativeToServices(entry: CreativeRegistryEntry): Creativ
     hardFacts: emptyServiceHardFacts(now),
     workDescription: entry.workDescription ?? "",
     budgetNote: "",
+    serviceHighlight: "",
     aiSemanticTags: [],
     curatorNote: null,
     verifiedFacts: [],

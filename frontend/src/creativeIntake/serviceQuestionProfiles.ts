@@ -72,10 +72,18 @@ export function getServiceQuestionProfile(serviceName: string, creativeField: st
   return { physical: true };
 }
 
+// "a Illustration project" reads as a typo — pick the article by the
+// service name's leading sound. A plain vowel-letter check misses a
+// handful of real English exceptions, but every taxonomy service name is
+// a plain noun phrase, so this covers all of them correctly.
+function articleFor(word: string): "a" | "an" {
+  return /^[aeiou]/i.test(word.trim()) ? "an" : "a";
+}
+
 export function budgetQuestionCopy(serviceName: string, physical: boolean): string {
   return physical
     ? `What's your usual minimum budget when you're booked for ${serviceName}?`
-    : `What's your usual minimum budget for a ${serviceName} project?`;
+    : `What's your usual minimum budget for ${articleFor(serviceName)} ${serviceName} project?`;
 }
 
 export function leadTimeQuestionCopy(physical: boolean): string {

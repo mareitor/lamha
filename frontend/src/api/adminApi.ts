@@ -327,6 +327,7 @@ export interface ServicePatch {
   status?: "active" | "inactive";
   workDescription?: string;
   budgetNote?: string;
+  serviceHighlight?: string;
   hardFacts?: {
     minimumBudget?: Partial<Fact<{ amount: number; currency: string }>>;
     travelWillingness?: Partial<Fact<TravelWillingness>>;

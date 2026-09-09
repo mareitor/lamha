@@ -611,6 +611,7 @@ interface ServicePatchBody {
   status?: "active" | "inactive";
   workDescription?: string;
   budgetNote?: string;
+  serviceHighlight?: string;
   hardFacts?: ServiceHardFactPatch;
   curatorNote?: { text: string; authorName: string } | null;
   verifiedFacts?: VerifiedFact[];
@@ -638,6 +639,7 @@ adminRoutes.post("/creatives/:id/services", async (c) => {
       hardFacts: emptyServiceHardFacts(now),
       workDescription: body.workDescription ?? "",
       budgetNote: body.budgetNote ?? "",
+      serviceHighlight: body.serviceHighlight ?? "",
       aiSemanticTags: [],
       curatorNote: null,
       verifiedFacts: [],
@@ -697,6 +699,7 @@ adminRoutes.patch("/creatives/:id/services/:serviceId", async (c) => {
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.workDescription !== undefined ? { workDescription: body.workDescription } : {}),
         ...(body.budgetNote !== undefined ? { budgetNote: body.budgetNote } : {}),
+        ...(body.serviceHighlight !== undefined ? { serviceHighlight: body.serviceHighlight } : {}),
         ...(body.curatorNote !== undefined
           ? { curatorNote: body.curatorNote ? { ...body.curatorNote, updatedAt: now } : null }
           : {}),

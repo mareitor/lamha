@@ -13,7 +13,7 @@ export interface IntakeService {
   creativeField: string;
   serviceName: string;
   status: "active" | "inactive";
-  workDescription: string;
+  serviceHighlight: string;
   budgetNote: string;
   hardFacts: ServiceHardFacts;
 }
@@ -21,6 +21,9 @@ export interface IntakeService {
 export interface IntakeView {
   id: string;
   displayName: string;
+  // The bio they already gave us — read-only, shown once ("here's what
+  // we know about you"), not editable through this flow.
+  bio: string;
   travelWillingnessHint: TravelWillingness | null;
   services: IntakeService[];
 }
@@ -69,7 +72,7 @@ export interface HardFactPatch {
 }
 
 export interface ServiceIntakePatch {
-  workDescription?: string;
+  serviceHighlight?: string;
   budgetNote?: string;
   hardFacts?: HardFactPatch;
 }

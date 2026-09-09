@@ -185,6 +185,29 @@
   transform: none;
 }
 
+/* Read-only "here's what we know about you" bio on the overview screen
+   (Sept 9, round 2b) — deliberately not editable here; a plain quote
+   block, not a form field, so it doesn't read as something to fill in. */
+.intake-bio-quote {
+  margin: 10px 0 18px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--brass);
+  background: var(--color-pill-bg-2);
+  border-radius: 0 8px 8px 0;
+  font-size: 0.9rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+/* Quiet subtitle under a service's big title (Sept 9, round 2b) —
+   replaces the old field-name eyebrow, which Mario found confusing;
+   generic enough to fit any service name without special-casing. */
+.intake-service-subline {
+  margin: 0 0 18px;
+  font-size: 0.82rem;
+  opacity: 0.6;
+}
+
 /* Overview screen (Sept 9, round 2) — shows what fields/services a
    creative is on file for before the question flow starts. */
 .intake-overview-list {

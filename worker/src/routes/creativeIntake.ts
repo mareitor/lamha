@@ -13,13 +13,22 @@ import { requireCreativeExists } from "../middleware/requireCreativeExists";
 // never claim to be "team_verified".
 //
 // Round 2 (Sept 9, Mario's feedback after the first version shipped):
-// also lets a creative edit their own display name and each service's
-// work description (plain text, not a trust-tiered hard fact — same
-// "saves immediately" model as everything else here), and adds a
-// free-text "describe your budget instead" path with a best-effort AI
-// parse. Deliberately still narrow: creativeField/serviceName (the
-// taxonomy selection), status, curatorNote, and verifiedFacts stay
-// admin-only, reached through /api/admin/*.
+// also lets a creative edit their own display name, and adds a free-text
+// "describe your budget instead" path with a best-effort AI parse.
+// Deliberately still narrow: creativeField/serviceName (the taxonomy
+// selection), status, curatorNote, and verifiedFacts stay admin-only,
+// reached through /api/admin/*.
+//
+// Round 2b (Sept 9, same day — Mario saw the shared bio duplicated
+// across every service): the flow originally let a creative "edit"
+// workDescription per service, but since every service started out with
+// the SAME migrated legacy bio, that just meant overwriting identical
+// text N times. Fixed by leaving `workDescription` alone entirely here
+// (admin-only from now on, via /api/admin/*) and instead exposing the
+// creative's overall bio as read-only ("here's what we know about you"),
+// shown once, plus a new always-starts-empty `serviceHighlight` field
+// per service — a genuinely additive "anything specific about you for
+// THIS one" prompt rather than a rewrite of what they already told us.
 
 type Vars = { creative: CreativeRegistryEntry };
 
@@ -37,6 +46,11 @@ function toIntakeView(raw: CreativeRegistryEntry) {
   return {
     id: creative.id,
     displayName: creative.displayName,
+    // The bio they already gave us (from the original supplier-intake
+    // form) — read-only here, shown once up front ("here's what we know
+    // about you"), never repeated per service and never overwritten by
+    // this flow. Editing it stays an admin-only action via /api/admin/*.
+    bio: creative.workDescription ?? "",
     // Pre-fill hint for the "asked once, applies to everything" travel
     // question — inferred from whichever service was answered first,
     // since there's no separate profile-level hard fact for this (a
@@ -51,7 +65,7 @@ function toIntakeView(raw: CreativeRegistryEntry) {
       creativeField: s.creativeField,
       serviceName: s.serviceName,
       status: s.status,
-      workDescription: s.workDescription,
+      serviceHighlight: s.serviceHighlight ?? "",
       budgetNote: s.budgetNote ?? "",
       hardFacts: s.hardFacts,
     })),
@@ -193,7 +207,7 @@ interface HardFactPatch {
 }
 
 interface ServiceIntakePatchBody {
-  workDescription?: string;
+  serviceHighlight?: string;
   budgetNote?: string;
   hardFacts?: HardFactPatch;
 }
@@ -220,7 +234,7 @@ creativeIntakeRoutes.patch("/:creativeId/services/:serviceId", requireCreativeEx
     const budgetFromFreeText = typeof body.budgetNote === "string" && body.budgetNote.trim().length > 0;
     return {
       ...service,
-      ...(body.workDescription !== undefined ? { workDescription: body.workDescription } : {}),
+      ...(body.serviceHighlight !== undefined ? { serviceHighlight: body.serviceHighlight } : {}),
       ...(body.budgetNote !== undefined ? { budgetNote: body.budgetNote } : {}),
       hardFacts: {
         minimumBudget: patch.minimumBudget

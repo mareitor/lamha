@@ -200,6 +200,12 @@ export interface CreativeService {
   // from this are tagged "ai_inferred", never "self_reported".
   budgetNote: string;
 
+  // Sept 9, round 2 — a NEW, separate field the intake flow writes to
+  // ("what's specific about you for this service"); workDescription
+  // stays untouched by the intake flow, admin-editable only. See
+  // worker's mirror of this type for the full reasoning.
+  serviceHighlight: string;
+
   aiSemanticTags: SemanticTag[];
   curatorNote: CuratorNote | null;
   verifiedFacts: VerifiedFact[];

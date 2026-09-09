@@ -544,6 +544,51 @@ adminRoutes.patch("/creatives/bulk-status", async (c) => {
   return c.json({ creatives: result, updated });
 });
 
+// Round 4 (Sept 9) — Mario played around with some creatives' intake
+// links while testing the self-intake flow before the real campaign went
+// out, and doesn't remember which ones. Since NONE of these creatives
+// should have any self-reported answers yet (their real links haven't
+// been sent), the safe fix is a blanket reset rather than hunting for
+// which records he touched: for every id given, wipe every field the
+// self-intake flow (not the admin form) can write — serviceHighlight,
+// budgetNote, and the four hard facts — back to their untouched blank
+// state, on every one of that creative's services. Leaves displayName,
+// workDescription, and everything admin-editable completely alone.
+// Registered before "/creatives/:itemId" for the same reason as
+// bulk-status above — so this literal path is never read as an :itemId.
+adminRoutes.patch("/creatives/bulk-reset-intake", async (c) => {
+  const body = await c.req.json<{ ids?: string[] }>().catch((): { ids?: string[] } => ({}));
+  const ids = Array.isArray(body.ids) ? body.ids : [];
+  if (ids.length === 0) {
+    return c.json({ error: "No ids provided" }, 400);
+  }
+
+  const idSet = new Set(ids);
+  const registry = await getCreativeRegistry(c.env);
+  const now = Date.now();
+  let updated = 0;
+  const result = registry.map((entry) => {
+    if (!idSet.has(entry.id)) return entry;
+    const migrated = migrateCreativeToServices(entry);
+    if (!migrated.services || migrated.services.length === 0) return migrated;
+    updated++;
+    return {
+      ...migrated,
+      services: migrated.services.map((s) => ({
+        ...s,
+        serviceHighlight: "",
+        budgetNote: "",
+        hardFacts: emptyServiceHardFacts(now),
+        updatedAt: now,
+      })),
+      updatedAt: now,
+    };
+  });
+
+  await putCreativeRegistry(c.env, result);
+  return c.json({ creatives: result, updated });
+});
+
 adminRoutes.patch("/creatives/:itemId", async (c) => {
   const itemId = c.req.param("itemId");
   const body = await c.req.json<Partial<CreativeRegistryEntry>>();

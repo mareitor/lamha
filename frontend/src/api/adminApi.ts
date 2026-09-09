@@ -267,6 +267,23 @@ export function bulkUpdateCreativeStatus(
   });
 }
 
+// Round 4 (Sept 9) — wipes only what the self-intake flow itself can
+// write (serviceHighlight, budgetNote, the four hard facts) for the
+// given creatives, back to blank/unknown. Use before a real self-intake
+// campaign goes out, to clear out anything entered while testing the
+// flow — never touches displayName, workDescription, or anything
+// admin-editable.
+export function bulkResetIntakeAnswers(
+  adminPassword: string,
+  ids: string[],
+): Promise<{ creatives: CreativeRegistryEntry[]; updated: number }> {
+  return apiRequest("/api/admin/creatives/bulk-reset-intake", {
+    method: "PATCH",
+    body: { ids },
+    adminPassword,
+  });
+}
+
 export function restoreCreative(
   adminPassword: string,
   itemId: string,

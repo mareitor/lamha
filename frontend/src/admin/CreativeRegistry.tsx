@@ -308,6 +308,7 @@ export function CreativeRegistry() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [confirmingResetIntake, setConfirmingResetIntake] = useState(false);
   const [migrating, setMigrating] = useState(false);
   const [copiedIntakeId, setCopiedIntakeId] = useState<string | null>(null);
 
@@ -545,6 +546,24 @@ export function CreativeRegistry() {
       const { creatives } = await adminApi.bulkUpdateCreativeStatus(password, [...selectedIds], status);
       setCreatives(creatives);
       setSelectedIds(new Set());
+    } finally {
+      setBulkUpdating(false);
+    }
+  }
+
+  // Round 4 (Sept 9) — wipes serviceHighlight/budgetNote/hard facts back
+  // to blank for the selected creatives, e.g. to clear out anything
+  // entered while testing the self-intake flow before the real links go
+  // out. Two-step (a small inline confirm first) since it can't be
+  // undone from this UI once it's saved.
+  async function bulkResetIntake() {
+    if (!password || selectedIds.size === 0) return;
+    setBulkUpdating(true);
+    try {
+      const { creatives } = await adminApi.bulkResetIntakeAnswers(password, [...selectedIds]);
+      setCreatives(creatives);
+      setSelectedIds(new Set());
+      setConfirmingResetIntake(false);
     } finally {
       setBulkUpdating(false);
     }
@@ -1065,11 +1084,47 @@ export function CreativeRegistry() {
           >
             Mark Inactive
           </button>
+          {!confirmingResetIntake ? (
+            <button
+              className="btn-secondary"
+              style={{ fontSize: "0.8rem", padding: "6px 12px" }}
+              disabled={bulkUpdating}
+              onClick={() => setConfirmingResetIntake(true)}
+              title="Clears serviceHighlight, budgetNote, and the four hard-fact answers (budget/travel/outdoor/lead time) back to blank for these creatives — e.g. to wipe test data entered before the real self-intake links go out. Never touches name or description."
+            >
+              Reset intake answers
+            </button>
+          ) : (
+            <>
+              <span style={{ fontSize: "0.8rem" }}>
+                Wipe self-intake answers for {selectedIds.size}? This can't be undone here.
+              </span>
+              <button
+                className="btn-secondary"
+                style={{ fontSize: "0.8rem", padding: "6px 12px" }}
+                disabled={bulkUpdating}
+                onClick={bulkResetIntake}
+              >
+                {bulkUpdating ? "Resetting…" : "Yes, reset"}
+              </button>
+              <button
+                className="btn-secondary"
+                style={{ fontSize: "0.8rem", padding: "6px 12px" }}
+                disabled={bulkUpdating}
+                onClick={() => setConfirmingResetIntake(false)}
+              >
+                Cancel
+              </button>
+            </>
+          )}
           <button
             className="btn-secondary"
             style={{ fontSize: "0.8rem", padding: "6px 12px", marginLeft: "auto" }}
             disabled={bulkUpdating}
-            onClick={() => setSelectedIds(new Set())}
+            onClick={() => {
+              setSelectedIds(new Set());
+              setConfirmingResetIntake(false);
+            }}
           >
             Clear selection
           </button>

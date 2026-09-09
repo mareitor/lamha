@@ -51,8 +51,9 @@ export const creativeIntakeRoutes = new Hono<{ Bindings: Env; Variables: Vars }>
 const GENERIC_NAME_TOKENS = new Set([
   "artist",
   "artists",
-  "fine art",
-  "live art",
+  "art",
+  "fine",
+  "live",
   "studio",
   "freelance",
   "freelancer",
@@ -65,15 +66,37 @@ const GENERIC_NAME_TOKENS = new Set([
   "creative",
   "creatives",
   "self",
+  // Round 4b (Sept 9, same day — checked against the real registry export
+  // before drafting outreach emails): a role/category word standing in
+  // for a name entirely ("Comedian", "Artist - Calligrapher", "Artist/
+  // calligrapher", "Artist, Artist group") is the exact same problem as
+  // "Artist" alone, just with more words. Split down to individual words
+  // (not just comma/slash-separated chunks) below, so this only needs
+  // single generic words, not every multi-word combination of them.
+  "calligrapher",
+  "calligraphy",
+  "comedian",
+  "photographer",
+  "photography",
+  "musician",
+  "painter",
+  "painting",
+  "crew",
+  "team",
+  "collective",
+  "creator",
 ]);
 
 function looksLikeGenericPlaceholder(name: string): boolean {
   const trimmed = name.trim();
   if (!trimmed) return true;
+  // Split into individual words on any separator (slash, comma, &, "and",
+  // whitespace), then drop pure-punctuation leftovers (a bare "-" between
+  // two real words shouldn't force the whole name to "not generic").
   const tokens = trimmed
-    .split(/\/|,|&| and /i)
+    .split(/[/,&\s]+| and /i)
     .map((t) => t.trim().toLowerCase())
-    .filter((t) => t.length > 0);
+    .filter((t) => t.length > 0 && /[a-z0-9]/i.test(t));
   if (tokens.length === 0) return true;
   return tokens.every((t) => GENERIC_NAME_TOKENS.has(t));
 }

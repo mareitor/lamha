@@ -46,6 +46,7 @@ export function migrateCreativeToServices(entry: CreativeRegistryEntry): Creativ
     status: entry.status === "archived" ? "inactive" : (entry.status as "active" | "inactive"),
     hardFacts: emptyServiceHardFacts(now),
     workDescription: entry.workDescription ?? "",
+    budgetNote: "",
     aiSemanticTags: [],
     curatorNote: null,
     verifiedFacts: [],

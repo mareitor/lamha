@@ -255,6 +255,16 @@ export interface CreativeService {
   hardFacts: ServiceHardFacts;
   workDescription: string; // free text — evidence for the AI layer, not itself a hard fact
 
+  // Sept 2026 — the creative's own free-text explanation when a flat
+  // minimum-budget number was hard to give (self-intake flow). The
+  // Worker's AI-parse route turns this into a best-guess
+  // hardFacts.minimumBudget, tagged "ai_inferred" (never "self_reported")
+  // specifically so a bad parse can only ever downweight a match, never
+  // hard-exclude one — see the feasibility-filter trust-tier rule above.
+  // Kept alongside the parsed number either way so a human can sanity-
+  // check it. Empty string means no free-text answer was given.
+  budgetNote: string;
+
   aiSemanticTags: SemanticTag[];
   curatorNote: CuratorNote | null;
   verifiedFacts: VerifiedFact[];

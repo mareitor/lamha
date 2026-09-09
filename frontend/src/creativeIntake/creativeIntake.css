@@ -64,6 +64,7 @@
 .intake-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: var(--space-4);
 }
@@ -128,6 +129,94 @@
   border-color: var(--brass);
   background: var(--brass-tint);
   color: var(--color-primary);
+}
+
+/* Inline "not you? edit" link next to the welcome heading, and the small
+   input row it expands into (Sept 9, round 2). */
+.intake-inline-edit {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--brass);
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 2px 6px;
+  opacity: 0.75;
+}
+
+.intake-inline-edit:hover {
+  opacity: 1;
+  transform: none;
+}
+
+.intake-name-edit-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.intake-name-edit-row input {
+  max-width: 220px;
+}
+
+/* Small text-link style toggle between the number and free-text budget
+   inputs (Sept 9, round 2 — "sometimes it is hard to say [a number]"). */
+.intake-link-toggle {
+  margin-top: 6px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 2px 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--brass);
+  text-align: left;
+}
+
+.intake-link-toggle:hover {
+  opacity: 0.8;
+  transform: none;
+}
+
+/* Overview screen (Sept 9, round 2) — shows what fields/services a
+   creative is on file for before the question flow starts. */
+.intake-overview-list {
+  display: grid;
+  gap: 14px;
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+.intake-overview-group ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.intake-overview-group li {
+  font-size: 0.78rem;
+  background: var(--color-pill-bg-2);
+  border-radius: 999px;
+  padding: 4px 11px;
+}
+
+.intake-overview-field {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brass);
 }
 
 @keyframes intakeCardIn {

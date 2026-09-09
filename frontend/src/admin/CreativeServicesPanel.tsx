@@ -36,6 +36,7 @@ function emptyEditForm(service: CreativeService) {
           : "unknown",
     leadTimeDays: service.hardFacts.leadTimeDays.value != null ? String(service.hardFacts.leadTimeDays.value) : "",
     curatorNoteText: service.curatorNote?.text ?? "",
+    budgetNote: service.budgetNote ?? "",
     verifiedFacts: service.verifiedFacts,
   };
 }
@@ -102,6 +103,7 @@ function ServiceCard({
       const { creatives } = await adminApi.updateCreativeService(password, creative.id, service.id, {
         status: form.status,
         workDescription: form.workDescription,
+        budgetNote: form.budgetNote,
         hardFacts: {
           minimumBudget:
             form.minBudgetAmount.trim() === ""
@@ -221,6 +223,23 @@ function ServiceCard({
               <strong style={{ fontWeight: 600 }}>Curator's note:</strong> {service.curatorNote.text}
             </p>
           )}
+          {service.budgetNote && (
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "0.76rem",
+                fontStyle: "italic",
+                opacity: 0.85,
+                background: "var(--brass-tint, var(--color-pill-bg))",
+                borderRadius: 6,
+                padding: "5px 9px",
+              }}
+              title="What they wrote when a flat number was hard to give — the parsed budget number above (if any) was AI's best guess from this text."
+            >
+              <strong style={{ fontWeight: 600, fontStyle: "normal" }}>In their own words, on budget:</strong> "
+              {service.budgetNote}"
+            </p>
+          )}
           {service.verifiedFacts.length > 0 && (
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 6 }}>
               {service.verifiedFacts.map((v) => (
@@ -325,6 +344,16 @@ function ServiceCard({
               rows={2}
               value={form.curatorNoteText}
               onChange={(e) => setForm((f) => ({ ...f, curatorNoteText: e.target.value }))}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.72rem" }}>Their own words on budget (from the intake flow, editable)</label>
+            <textarea
+              rows={2}
+              placeholder="Filled in automatically if they wrote a free-text budget answer"
+              value={form.budgetNote}
+              onChange={(e) => setForm((f) => ({ ...f, budgetNote: e.target.value }))}
             />
           </div>
 

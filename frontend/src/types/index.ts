@@ -195,6 +195,11 @@ export interface CreativeService {
   hardFacts: ServiceHardFacts;
   workDescription: string;
 
+  // Sept 2026 — creative's own free-text budget explanation, see worker's
+  // mirror of this type for the full reasoning. AI-parsed numbers derived
+  // from this are tagged "ai_inferred", never "self_reported".
+  budgetNote: string;
+
   aiSemanticTags: SemanticTag[];
   curatorNote: CuratorNote | null;
   verifiedFacts: VerifiedFact[];

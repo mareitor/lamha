@@ -309,6 +309,7 @@ export function CreativeRegistry() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [copiedIntakeId, setCopiedIntakeId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!password) return;
@@ -450,6 +451,25 @@ export function CreativeRegistry() {
     if (!password) return;
     const { creatives } = await adminApi.restoreCreative(password, itemId);
     setCreatives(creatives);
+  }
+
+  // Schema v2 Phase 2 (Sept 2026) — a creative's own personal intake
+  // link, same shareable-by-id pattern as a demo link (see
+  // AdminDashboard's shareUrl). Mario sends this himself (WhatsApp,
+  // email, whatever) — nothing here sends it automatically.
+  function intakeLink(id: string): string {
+    return `${window.location.origin}/creative/${id}`;
+  }
+
+  async function copyIntakeLink(id: string) {
+    try {
+      await navigator.clipboard.writeText(intakeLink(id));
+      setCopiedIntakeId(id);
+      setTimeout(() => setCopiedIntakeId((v) => (v === id ? null : v)), 1800);
+    } catch {
+      // Clipboard permission denied or unavailable — Mario can still
+      // select the link text from the expanded card if needed.
+    }
   }
 
   function toggleTrash() {
@@ -1253,6 +1273,14 @@ export function CreativeRegistry() {
                     </>
                   ) : (
                     <>
+                      <button
+                        className="btn-secondary"
+                        style={{ fontSize: "0.78rem" }}
+                        onClick={() => copyIntakeLink(entry.id)}
+                        title="Copy this creative's personal link — they use it to fill in their own budget/travel/lead-time answers"
+                      >
+                        {copiedIntakeId === entry.id ? "Copied!" : "Copy intake link"}
+                      </button>
                       <button className="btn-secondary" onClick={() => startEdit(entry)}>
                         Edit
                       </button>

@@ -4,6 +4,7 @@ import type { Env } from "./types";
 import { requireAdmin } from "./middleware/requireAdmin";
 import { adminRoutes } from "./routes/admin";
 import { demoRoutes } from "./routes/demo";
+import { creativeIntakeRoutes } from "./routes/creativeIntake";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -26,6 +27,9 @@ app.get("/", (c) => c.json({ ok: true, service: "lamha-worker" }));
 app.use("/api/admin/*", requireAdmin);
 app.route("/api/admin", adminRoutes);
 app.route("/api/demo", demoRoutes);
+// Public given the creative's own id, no admin password — see
+// requireCreativeExists for the trust model (same as demo links).
+app.route("/api/creative-intake", creativeIntakeRoutes);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

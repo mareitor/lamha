@@ -1,0 +1,151 @@
+/* Creative self-intake (Sept 2026) — a warm, one-question-at-a-time flow,
+   deliberately distinct in feel from the admin console and the client
+   demo shell even though it shares the same brand tokens (theme.css).
+   Scoped entirely under .intake-* so nothing here leaks into the rest of
+   the app. */
+
+.intake-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.intake-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5) var(--space-4);
+  gap: var(--space-3);
+}
+
+.intake-dots {
+  display: flex;
+  gap: 7px;
+}
+
+.intake-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-pill-bg-2);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.intake-dot.filled {
+  background: var(--brass);
+  transform: scale(1.15);
+}
+
+.intake-card {
+  width: 100%;
+  max-width: 480px;
+  animation: intakeCardIn 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.intake-welcome {
+  text-align: center;
+}
+
+.intake-welcome button {
+  margin: var(--space-3) auto 0;
+}
+
+.intake-eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.intake-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: var(--space-4);
+}
+
+/* Travel-willingness picker — a big selectable row, not a small radio. */
+.intake-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 18px;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-pill-bg-2);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  font-weight: 400;
+}
+
+.intake-choice:hover {
+  border-color: var(--brass);
+  transform: none;
+  opacity: 1;
+}
+
+.intake-choice strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.intake-choice span {
+  font-size: 0.78rem;
+  opacity: 0.65;
+}
+
+.intake-choice.selected {
+  border-color: var(--brass);
+  background: var(--brass-tint);
+}
+
+/* Yes / No / Not sure toggle group (outdoor-capable question). */
+.intake-pill-choice {
+  flex: 1;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-pill-bg-2);
+  box-shadow: none;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 9px 0;
+}
+
+.intake-pill-choice:hover {
+  transform: none;
+  opacity: 1;
+  border-color: var(--brass);
+}
+
+.intake-pill-choice.selected {
+  border-color: var(--brass);
+  background: var(--brass-tint);
+  color: var(--color-primary);
+}
+
+@keyframes intakeCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intake-card {
+    animation: none;
+  }
+  .intake-dot.filled {
+    transform: none;
+  }
+}

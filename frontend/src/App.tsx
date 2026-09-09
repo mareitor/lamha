@@ -7,6 +7,7 @@ import { NewDemoForm } from "./admin/NewDemoForm";
 import { DemoEditor } from "./admin/DemoEditor";
 import { CreativeRegistry } from "./admin/CreativeRegistry";
 import { DemoShell } from "./client/DemoShell";
+import { CreativeIntakePage } from "./creativeIntake/CreativeIntakePage";
 
 export function App() {
   return (
@@ -48,6 +49,11 @@ export function App() {
               </AdminRouteGuard>
             }
           />
+
+          {/* Public creative self-intake link (Sept 2026) — must come
+              before the demo-ID catch-all below since "creative" would
+              otherwise be swallowed as a (nonexistent) demo id. */}
+          <Route path="/creative/:creativeId" element={<CreativeIntakePage />} />
 
           {/* Every other path is treated as a demo ID; DemoShell owns the
               nested /planner route itself once the demo is loaded. */}

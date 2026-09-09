@@ -514,3 +514,120 @@ adminRoutes.delete("/creatives/:itemId/permanent", async (c) => {
   await putCreativeRegistry(c.env, updated);
   return c.json({ creatives: updated });
 });
+
+// AI matching (Sept 2026): given one demo's Event brief, ask Claude to
+// shortlist the best-fitting creatives from the *real* registry — Active
+// only, since Inactive means Mario hasn't reviewed it yet. This is
+// deliberately a sourcing tool for Mario himself: the result is never
+// written into the demo record and never reaches a client-facing route,
+// because every demo's own Programming/Season Agenda stays 100%
+// fictional (locked decision from the original plan) — matching just
+// helps Mario find real people to actually contact and book.
+adminRoutes.post("/demos/:id/match-creatives", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+
+  if (!c.env.ANTHROPIC_API_KEY) {
+    return c.json(
+      { error: "No Anthropic API key is configured on this Worker yet — run `wrangler secret put ANTHROPIC_API_KEY` in worker/ and redeploy." },
+      400,
+    );
+  }
+
+  const brief = [demo.event.eventName, demo.event.eventType, demo.event.description, demo.event.notes]
+    .filter((s) => s && s.trim())
+    .join("\n");
+  if (!brief.trim()) {
+    return c.json({ error: "This demo's Event tab has no name/type/description yet — fill that in first, then try matching." }, 400);
+  }
+
+  const registry = await getCreativeRegistry(c.env);
+  const active = registry.filter((e) => e.status === "active");
+  if (active.length === 0) {
+    return c.json({ error: "No Active creatives in the registry yet — review some from the Creative Registry page first." }, 400);
+  }
+
+  // Client-safe-ish summary for the model — it only needs enough to judge
+  // fit, not contact/pricing details (those get re-attached from the
+  // registry afterwards, for Mario's own use, never sent to the model).
+  const candidates = active.map((e) => ({
+    id: e.id,
+    name: e.displayName,
+    fields: e.creativeFields,
+    services: e.creativeServices,
+    description: e.workDescription,
+  }));
+
+  const prompt = `You are helping an event producer shortlist creative acts/suppliers for a specific event from their supplier database.
+
+Event brief:
+${brief}
+
+Candidate creatives (JSON):
+${JSON.stringify(candidates)}
+
+Pick the best-fitting candidates for this event, ranked best first. Return ONLY a JSON array (no prose, no markdown code fences), each item shaped exactly as:
+{"id": "<candidate id, copied exactly from the list above>", "fitScore": <integer 0-100>, "reason": "<one sentence on why this fits the event>"}
+
+Return at most 8 candidates, and only ones that are a genuinely reasonable fit for this event — fewer than 8 is fine if fewer than 8 fit well. Never invent an id that isn't in the candidate list above.`;
+
+  let aiText: string;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": c.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        max_tokens: 2000,
+        temperature: 0.2,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      return c.json({ error: `The AI matching request failed (Anthropic returned ${res.status}). ${errText.slice(0, 300)}` }, 502);
+    }
+    const data = await res.json<{ content?: { type: string; text?: string }[] }>();
+    aiText = data.content?.find((block) => block.type === "text")?.text ?? "";
+  } catch (err) {
+    return c.json({ error: `Couldn't reach the Anthropic API: ${(err as Error).message}` }, 502);
+  }
+
+  let parsed: { id: string; fitScore: number; reason: string }[];
+  try {
+    const cleaned = aiText.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+    const json: unknown = JSON.parse(cleaned);
+    if (!Array.isArray(json)) throw new Error("not an array");
+    parsed = json as { id: string; fitScore: number; reason: string }[];
+  } catch {
+    return c.json({ error: "Got a response back from the AI but couldn't make sense of it — try again." }, 502);
+  }
+
+  const byId = new Map(active.map((e) => [e.id, e]));
+  const matches = parsed
+    .filter((m) => byId.has(m.id))
+    .map((m) => {
+      const e = byId.get(m.id)!;
+      return {
+        id: e.id,
+        displayName: e.displayName,
+        creativeFields: e.creativeFields,
+        creativeServices: e.creativeServices,
+        workDescription: e.workDescription,
+        email: e.email,
+        phoneCountryCode: e.phoneCountryCode,
+        phone: e.phone,
+        whatsappForBusiness: e.whatsappForBusiness,
+        website: e.website,
+        socialMediaLink: e.socialMediaLink,
+        fitScore: Math.max(0, Math.min(100, Math.round(m.fitScore ?? 0))),
+        reason: m.reason ?? "",
+      };
+    });
+
+  return c.json({ matches });
+});

@@ -9,6 +9,7 @@ import type {
   InvoiceEntry,
   Location,
   CreativeRegistryEntry,
+  CreativeMatch,
 } from "../types";
 
 // Admin-scoped API — every call requires the shared admin password,
@@ -264,3 +265,11 @@ export function restoreCreative(
 // left here, unused, only as a note of that boundary rather than a
 // dead export to trip over.
 // permanentlyDeleteCreative intentionally removed from the client API.
+
+// AI matching — reads the given demo's Event brief and asks Claude to
+// shortlist fitting creatives from the live (Active-only) registry. This
+// is Mario's own sourcing tool: results are never written back onto the
+// demo and never reach a client-facing route.
+export function matchCreatives(adminPassword: string, demoId: string): Promise<{ matches: CreativeMatch[] }> {
+  return apiRequest(`/api/admin/demos/${demoId}/match-creatives`, { method: "POST", adminPassword });
+}

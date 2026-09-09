@@ -137,6 +137,25 @@ export interface CreativeRegistryEntry {
   updatedAt: number;
 }
 
+// One AI-suggested creative for a demo's event brief — admin-only, never
+// surfaced to a client. See the matching worker route for why this stays
+// separate from a demo's (always-fictional) Programming/Season Agenda.
+export interface CreativeMatch {
+  id: string;
+  displayName: string;
+  creativeFields: string[];
+  creativeServices: string[];
+  workDescription: string;
+  email: string;
+  phoneCountryCode: string;
+  phone: string;
+  whatsappForBusiness: boolean | null;
+  website: string;
+  socialMediaLink: string;
+  fitScore: number;
+  reason: string;
+}
+
 export interface RosterCreative {
   id: string;
   name: string;

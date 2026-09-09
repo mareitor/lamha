@@ -15,6 +15,10 @@ bucket_name = "lamha-logos"
 
 # Secrets (set via `wrangler secret put <NAME>`, never committed here):
 #   ADMIN_PASSWORD — shared admin password checked by requireAdmin middleware
+#   ANTHROPIC_API_KEY — optional; powers AI creative-matching
+#     (POST /api/admin/demos/:id/match-creatives). Get a key at
+#     console.anthropic.com, then from worker/: wrangler secret put ANTHROPIC_API_KEY
+#     Matching just returns a clear "not configured" error until this is set.
 
 [vars]
 # Non-secret config can go here later if needed (e.g. DEMO_TTL_DAYS = "14")

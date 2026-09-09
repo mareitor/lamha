@@ -168,4 +168,30 @@ export interface Env {
   LAMHA_KV: KVNamespace;
   LAMHA_LOGOS: R2Bucket;
   ADMIN_PASSWORD: string;
+  // Optional: AI-matching (POST /api/admin/demos/:id/match-creatives)
+  // degrades to a clear "not configured" error when this is unset, rather
+  // than throwing — see that route in routes/admin.ts.
+  ANTHROPIC_API_KEY?: string;
+}
+
+// One AI-suggested creative for a demo's event brief — a live registry
+// entry (client-safe fields only, plus the internal contact fields Mario
+// needs to actually reach out) with the model's fit reasoning attached.
+// Admin-only, never surfaced to a client: matching is Mario's own sourcing
+// tool, not something that populates a demo's (always-fictional) Season
+// Agenda.
+export interface CreativeMatch {
+  id: string;
+  displayName: string;
+  creativeFields: string[];
+  creativeServices: string[];
+  workDescription: string;
+  email: string;
+  phoneCountryCode: string;
+  phone: string;
+  whatsappForBusiness: boolean | null;
+  website: string;
+  socialMediaLink: string;
+  fitScore: number;
+  reason: string;
 }

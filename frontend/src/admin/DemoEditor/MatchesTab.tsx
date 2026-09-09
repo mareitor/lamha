@@ -2,6 +2,14 @@ import { useState } from "react";
 import * as adminApi from "../../api/adminApi";
 import { ApiError } from "../../api/client";
 import type { CreativeMatch, DemoRecord } from "../../types";
+import { MatchingOverlay } from "./MatchingOverlay";
+
+// Keep the "Lamha is on it" overlay up at least this long even when the
+// API responds fast, so it never flashes past before it can read — the
+// overlay exists for feel, not to mask real latency. The 350ms below
+// matches the CSS fade-out duration in theme.css (.matching-overlay.leaving).
+const MIN_OVERLAY_MS = 2200;
+const OVERLAY_FADE_MS = 350;
 
 // AI matching against the real Creative Registry — Mario's own sourcing
 // tool for finding suppliers to actually contact and book for this
@@ -31,24 +39,41 @@ export function MatchesTab({ demo, password }: Props) {
   const [matches, setMatches] = useState<CreativeMatch[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [overlayLeaving, setOverlayLeaving] = useState(false);
 
   const hasBrief = !!(demo.event.eventName || demo.event.eventType || demo.event.description || demo.event.notes);
 
   async function run() {
     setLoading(true);
     setError(null);
+    setShowOverlay(true);
+    setOverlayLeaving(false);
+    const startedAt = Date.now();
+
+    async function waitOutMinimum() {
+      const remaining = MIN_OVERLAY_MS - (Date.now() - startedAt);
+      if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+    }
+
     try {
       const { matches } = await adminApi.matchCreatives(password, demo.id);
+      await waitOutMinimum();
       setMatches(matches);
     } catch (err) {
+      await waitOutMinimum();
       setError(err instanceof ApiError ? err.message : "Couldn't run matching — try again.");
     } finally {
       setLoading(false);
+      setOverlayLeaving(true);
+      setTimeout(() => setShowOverlay(false), OVERLAY_FADE_MS);
     }
   }
 
   return (
     <div>
+      {showOverlay && <MatchingOverlay leaving={overlayLeaving} />}
+
       <div className="card" style={{ marginBottom: 24, maxWidth: 640 }}>
         <h3 style={{ marginTop: 0 }}>AI creative matching</h3>
         <p style={{ fontSize: "0.85rem", opacity: 0.75 }}>

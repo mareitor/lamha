@@ -617,7 +617,6 @@ Return at most 8 candidates, and only ones that are a genuinely reasonable fit f
       body: JSON.stringify({
         model: "claude-sonnet-5",
         max_tokens: 2000,
-        temperature: 0.2,
         messages: [{ role: "user", content: prompt }],
       }),
     });

@@ -472,6 +472,39 @@ export function CreativeRegistry() {
     }
   }
 
+  // Round 4 (Sept 9) — Mario wants to send each creative a personalized
+  // email with their OWN intake link. This runs entirely client-side
+  // against whatever's already loaded (respecting the current
+  // search/field/status filter, same as toggleSelectAllVisible above) —
+  // no new backend route, and never touches the admin password beyond
+  // what's already in memory for this page. One row per visible
+  // creative: name, contact name, email, and their intake link.
+  function csvCell(value: string): string {
+    const needsQuoting = /[",\n]/.test(value);
+    const escaped = value.replace(/"/g, '""');
+    return needsQuoting ? `"${escaped}"` : escaped;
+  }
+
+  function exportIntakeLinksCsv() {
+    if (!visibleCreatives || visibleCreatives.length === 0) return;
+    const header = ["id", "displayName", "contactName", "email", "intakeLink"];
+    const rows = visibleCreatives.map((entry) =>
+      [entry.id, entry.displayName, entry.contactName, entry.email, intakeLink(entry.id)]
+        .map((v) => csvCell(v ?? ""))
+        .join(","),
+    );
+    const csv = [header.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lamha-intake-links-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   function toggleTrash() {
     setShowTrash((v) => !v);
     setShowForm(false);
@@ -978,6 +1011,16 @@ export function CreativeRegistry() {
               <option value="active">Active only</option>
               <option value="inactive">Inactive only</option>
             </select>
+          )}
+          {!showTrash && visibleCreatives && visibleCreatives.length > 0 && (
+            <button
+              className="btn-secondary"
+              onClick={exportIntakeLinksCsv}
+              style={{ marginLeft: archivedCount > 0 ? undefined : "auto", fontSize: "0.8rem", padding: "8px 14px" }}
+              title="Downloads a CSV of everyone currently shown below (respects your search/field/status filters), with each creative's own intake link"
+            >
+              ⬇ Export intake links
+            </button>
           )}
           {archivedCount > 0 && (
             <button

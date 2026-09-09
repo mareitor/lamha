@@ -21,6 +21,12 @@ export interface IntakeService {
 export interface IntakeView {
   id: string;
   displayName: string;
+  // Sept 9, round 4 — display-only fallback for the welcome-screen
+  // greeting: same as displayName unless that looks like a generic
+  // placeholder ("Artist", "Fine art / live art"), in which case this is
+  // their real contact name instead. displayName itself is untouched —
+  // use greetingName only for what's shown before an edit happens.
+  greetingName: string;
   // The bio they already gave us — read-only, shown once ("here's what
   // we know about you"), not editable through this flow.
   bio: string;

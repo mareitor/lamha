@@ -34,6 +34,58 @@ type Vars = { creative: CreativeRegistryEntry };
 
 export const creativeIntakeRoutes = new Hono<{ Bindings: Env; Variables: Vars }>();
 
+// Round 4 (Sept 9, Mario, after seeing "Fine art / live art" and "Artist"
+// in the artist-name field): some creatives filled the original supplier
+// form's "artist / studio / group / band name" field with a placeholder
+// like "Artist" or their creative field name instead of an actual name —
+// which then greeted them with "Hey Artist 👋" on their own intake page.
+// Rather than overwrite the official displayName (used elsewhere — admin
+// lists, matching — and which may legitimately differ from a personal
+// name, e.g. a real studio/band name), resolve a separate greeting-only
+// name server-side: fall back to their internal contactName only when
+// displayName looks like a generic placeholder rather than a real name.
+// Best-effort and deliberately conservative (a token-set match, not an AI
+// classifier — no added latency/cost on every page load); Mario cleaning
+// up the worst offenders directly in the admin registry is still the
+// real long-term fix.
+const GENERIC_NAME_TOKENS = new Set([
+  "artist",
+  "artists",
+  "fine art",
+  "live art",
+  "studio",
+  "freelance",
+  "freelancer",
+  "n/a",
+  "na",
+  "tbd",
+  "unknown",
+  "group",
+  "band",
+  "creative",
+  "creatives",
+  "self",
+]);
+
+function looksLikeGenericPlaceholder(name: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed) return true;
+  const tokens = trimmed
+    .split(/\/|,|&| and /i)
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t.length > 0);
+  if (tokens.length === 0) return true;
+  return tokens.every((t) => GENERIC_NAME_TOKENS.has(t));
+}
+
+function resolveGreetingName(creative: CreativeRegistryEntry): string {
+  const displayName = (creative.displayName ?? "").trim();
+  if (displayName && !looksLikeGenericPlaceholder(displayName)) return displayName;
+  const contactName = (creative.contactName ?? "").trim();
+  if (contactName) return contactName;
+  return displayName || "there";
+}
+
 // Client-safe view: only what the creative needs to answer questions
 // about their own services. Never includes contactName/email/phone/
 // whatsapp/price notes/technical requirements/curatorNote/verifiedFacts
@@ -46,6 +98,11 @@ function toIntakeView(raw: CreativeRegistryEntry) {
   return {
     id: creative.id,
     displayName: creative.displayName,
+    // Display-only fallback for the welcome-screen greeting — see
+    // resolveGreetingName above. Never used for the "Not you? Edit"
+    // pre-fill's source of truth beyond that (displayName itself is
+    // untouched by this), just for what's shown before an edit happens.
+    greetingName: resolveGreetingName(creative),
     // The bio they already gave us (from the original supplier-intake
     // form) — read-only here, shown once up front ("here's what we know
     // about you"), never repeated per service and never overwritten by

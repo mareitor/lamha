@@ -168,7 +168,10 @@ export function CreativeIntakePage() {
   const services = view.services;
   const steps = buildSteps(services);
   const step = steps[Math.min(stepIndex, steps.length - 1)];
-  const firstName = view.displayName.split(" ")[0] || view.displayName;
+  // Round 4 — greetingName already falls back to their real contact name
+  // server-side when displayName looks like a placeholder ("Artist",
+  // "Fine art / live art"); displayName itself stays untouched.
+  const firstName = view.greetingName.split(" ")[0] || view.greetingName;
 
   function goBack() {
     setStepIndex((i) => Math.max(0, i - 1));
@@ -284,7 +287,7 @@ export function CreativeIntakePage() {
 
       {step.kind === "welcome" && (
         <div className="card intake-card intake-welcome">
-          <p className="intake-eyebrow">Lamha × {view.displayName}</p>
+          <p className="intake-eyebrow">Lamha × {view.greetingName}</p>
           {!editingName ? (
             <h1 style={{ marginBottom: 8 }}>
               Hey {firstName} 👋{" "}
@@ -292,7 +295,11 @@ export function CreativeIntakePage() {
                 type="button"
                 className="intake-inline-edit"
                 onClick={() => {
-                  setNameDraft(view.displayName);
+                  // Pre-fill with greetingName, not the raw displayName —
+                  // when displayName was a placeholder ("Artist"), this
+                  // means a plain Save actually corrects the record to
+                  // the better name instead of re-saving the placeholder.
+                  setNameDraft(view.greetingName);
                   setEditingName(true);
                 }}
               >

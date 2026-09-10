@@ -312,6 +312,12 @@ creativeIntakeRoutes.patch("/:creativeId/services/:serviceId", requireCreativeEx
     // hard-excludes a real candidate over a possible mis-parse. See the
     // Fact<T> trust-tier rule in types/index.ts.
     const budgetFromFreeText = typeof body.budgetNote === "string" && body.budgetNote.trim().length > 0;
+    // TS1355: `as const` can only apply to a literal, not a conditional
+    // expression — an explicitly-typed const (rather than a cast) is the
+    // correct way to narrow this to the two-value union.
+    const minimumBudgetSource: "ai_inferred" | "self_reported" = budgetFromFreeText
+      ? "ai_inferred"
+      : "self_reported";
     return {
       ...service,
       ...(body.serviceHighlight !== undefined ? { serviceHighlight: body.serviceHighlight } : {}),
@@ -320,7 +326,7 @@ creativeIntakeRoutes.patch("/:creativeId/services/:serviceId", requireCreativeEx
         minimumBudget: patch.minimumBudget
           ? {
               value: patch.minimumBudget.value,
-              source: (budgetFromFreeText ? "ai_inferred" : "self_reported") as const,
+              source: minimumBudgetSource,
               updatedAt: now,
             }
           : service.hardFacts.minimumBudget,

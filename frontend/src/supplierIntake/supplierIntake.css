@@ -1,0 +1,223 @@
+/* Public supplier intake form (Sept 2026) — the top-of-funnel "join our
+   network" form for people NOT yet in the CRM, as opposed to
+   creativeIntake.css's personalized /creative/:id follow-up for people
+   already known. Replaces riyadh-winter-2026.netlify.app/supplier-intake.html,
+   which had its own bespoke dark/gold visual language that didn't match
+   anything else Basa Studio / Book a Street Artist sends out — this
+   reuses the same Lamha brand tokens (theme.css) and the .intake-* shell
+   from creativeIntake.css so every link a prospect gets from us now
+   looks like it came from the same place. Submission payload shape and
+   the CREATIVE_FIELDS/CREATIVE_SERVICES_BY_FIELD taxonomy are unchanged
+   from the old page (see creativeTaxonomy.ts) — only the look changed. */
+
+.supplier-card {
+  max-width: 640px;
+  text-align: left;
+}
+
+.supplier-field {
+  margin-bottom: var(--space-4);
+}
+
+.supplier-field-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.supplier-field-row .supplier-field {
+  flex: 1;
+}
+
+.supplier-hint {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  opacity: 0.75;
+}
+
+.supplier-req {
+  color: var(--overdue);
+}
+
+.supplier-note {
+  margin: -10px 0 var(--space-3);
+  font-size: 0.76rem;
+  opacity: 0.65;
+}
+
+.supplier-divider {
+  border: none;
+  border-top: 1px solid var(--color-line);
+  margin: var(--space-4) 0;
+}
+
+/* Creative Field checkbox grid — a light pill-style option, not a plain
+   checkbox row, so 16 choices stay scannable. */
+.supplier-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.supplier-type-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-pill-bg-2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-primary);
+}
+
+.supplier-type-option input {
+  width: auto;
+  accent-color: var(--brass);
+}
+
+.supplier-type-option.checked {
+  border-color: var(--brass);
+  background: var(--brass-tint);
+}
+
+/* Creative Service — filtered by whichever fields are checked above,
+   grouped under a small field-name heading, with a search box since the
+   full taxonomy runs to ~170 services. */
+.supplier-specialty-search {
+  margin-bottom: var(--space-3);
+}
+
+.supplier-specialty-empty-hint {
+  font-size: 0.82rem;
+  opacity: 0.6;
+  padding: 8px 0;
+}
+
+.supplier-specialty-group {
+  margin-top: var(--space-3);
+}
+
+.supplier-specialty-group:first-of-type {
+  margin-top: 0;
+}
+
+.supplier-specialty-group-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 8px;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-line);
+}
+
+.supplier-specialty-group:first-of-type .supplier-specialty-group-title {
+  border-top: none;
+  padding-top: 0;
+}
+
+.supplier-specialty-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 6px;
+}
+
+.supplier-specialty-option {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-pill-bg-2);
+  border-radius: 6px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-primary);
+}
+
+.supplier-specialty-option input {
+  width: auto;
+  accent-color: var(--brass);
+}
+
+.supplier-specialty-option.checked {
+  border-color: var(--brass);
+  background: var(--brass-tint);
+}
+
+.supplier-specialty-option.hidden-by-search {
+  display: none;
+}
+
+.supplier-phone-row {
+  display: flex;
+  gap: 8px;
+}
+
+.supplier-phone-row select {
+  width: 150px;
+  flex-shrink: 0;
+}
+
+.supplier-phone-row input {
+  flex: 1;
+}
+
+.supplier-yn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.supplier-yn-option {
+  flex: 1;
+  text-align: center;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-pill-bg-2);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.supplier-yn-option.selected {
+  border-color: var(--brass);
+  background: var(--brass-tint);
+}
+
+.supplier-submit-row {
+  margin-top: var(--space-2);
+}
+
+.supplier-submit-row button {
+  width: 100%;
+}
+
+.supplier-error {
+  color: var(--overdue);
+  font-size: 0.8rem;
+  margin-top: 10px;
+}
+
+@media (max-width: 560px) {
+  .supplier-field-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  .supplier-field-row .supplier-field {
+    margin-bottom: var(--space-4);
+  }
+}

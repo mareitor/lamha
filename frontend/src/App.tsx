@@ -1,3 +1,4 @@
+import { SupplierIntakePage } from "./supplierIntake/SupplierIntakePage";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminAuthProvider } from "./admin/AdminAuthContext";
 import { AdminRouteGuard } from "./admin/AdminRouteGuard";
@@ -57,7 +58,8 @@ export function App() {
 
           {/* Every other path is treated as a demo ID; DemoShell owns the
               nested /planner route itself once the demo is loaded. */}
-          <Route path="/:demoId/*" element={<DemoShell />} />
+             <Route path="/supplier-intake" element={<SupplierIntakePage />} />
+<Route path="/:demoId/*" element={<DemoShell />} />
         </Routes>
       </BrowserRouter>
     </AdminAuthProvider>

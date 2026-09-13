@@ -1,0 +1,67 @@
+[
+  {
+    "name": "KAFD",
+    "formats": [
+      "Riyadh Pulse",
+      "City Sessions",
+      "Light Lines"
+    ],
+    "whyItWorks": "Landmark contemporary setting, business and lifestyle audience, metro connectivity and strong night identity. Best fit: Riyadh Pulse, City Sessions, Light Lines and projection subject to survey. Key assumptions: Landowner approval, acoustic controls, precise loading and crowd-bypass planning."
+  },
+  {
+    "name": "ROSHN Front",
+    "formats": [
+      "City Sessions",
+      "Light Lines"
+    ],
+    "whyItWorks": "Established dining, retail and leisure behaviour with wide public areas. Best fit: City Sessions, family participation, illuminated roaming and hospitality moments. Key assumptions: Tenant coordination, parking/traffic planning, sound zones and owner utilities."
+  },
+  {
+    "name": "U Walk",
+    "formats": [
+      "City Sessions",
+      "Light Lines"
+    ],
+    "whyItWorks": "Strong social and family use with a walkable linear environment. Best fit: Acoustic sessions, roaming characters, interactive light and family micro-experiences. Key assumptions: Narrow-route crowd management, tenant sightlines and minimal scenic footprint."
+  },
+  {
+    "name": "Riyadh Park",
+    "formats": [
+      "City Sessions",
+      "Riyadh Pulse"
+    ],
+    "whyItWorks": "Mixed family and youth audience, indoor/outdoor flexibility and strong retail infrastructure. Best fit: Family participation, City Sessions, contemporary movement and interactive visual experiences. Key assumptions: Indoor/outdoor permissions, mall operations, fire-life-safety rules and content rights."
+  },
+  {
+    "name": "Al Masmak / Justice Square",
+    "formats": [
+      "Riyadh Pulse",
+      "Light Lines"
+    ],
+    "whyItWorks": "Powerful Riyadh identity and proven public-cultural relevance. Best fit: Culturally rooted movement, percussion, poetry, illuminated procession and selected collective moment. Key assumptions: Heritage sensitivity, RCRC/authority coordination, sound limits, cultural review and strict asset protection."
+  },
+  {
+    "name": "Salam Park",
+    "formats": [
+      "Light Lines"
+    ],
+    "whyItWorks": "Family recreation, landscape and room for daytime participation and selected evening shows. Best fit: Family games, movement, roaming, hospitality and low-impact light. Key assumptions: Park operating rules, landscape protection, weather, power and controlled specialist-act zones."
+  },
+  {
+    "name": "Olaya / Tahlia Public-Realm Pocket",
+    "formats": [
+      "Riyadh Pulse",
+      "City Sessions",
+      "Light Lines"
+    ],
+    "whyItWorks": "Visible urban social environment with strong city-energy value. Best fit: Compact Riyadh Pulse, City Sessions, roaming encounters and short-form creator content. Key assumptions: Final public-space selection, traffic interface, business access, dense crowd behaviour and noise."
+  },
+  {
+    "name": "Metro Gateway Plazas",
+    "formats": [
+      "City Sessions",
+      "Light Lines"
+    ],
+    "whyItWorks": "Movement is already the defining behaviour; performances can reward arrival and departure. Best fit: Acoustic duos, small movement reveals, light objects and short audience participation. Key assumptions: Operator approval, passenger circulation, no obstruction, strict sound, rapid setup and portable power."
+  }
+]

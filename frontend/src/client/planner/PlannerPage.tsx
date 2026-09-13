@@ -5,6 +5,7 @@ import { useTheme } from "../../theme/ThemeProvider";
 import { SeasonAgenda } from "./SeasonAgenda";
 import { CreativeLineup } from "./CreativeLineup";
 import { LocationsPanel } from "./LocationsPanel";
+import { ConfidentialityNotice } from "../shared/ConfidentialityNotice";
 
 type Section = "agenda" | "lineup" | "locations";
 
@@ -64,6 +65,8 @@ export function PlannerPage({ demo }: { demo: DemoRecord }) {
         For engagements that run longer than one weekend, this is where you watch the season come
         together — the same programming as your dashboard, laid out across the full window.
       </p>
+
+      <ConfidentialityNotice />
 
       <div className="planner-stats">
         <StatTile num={stats.creativesConfirmed} label="Creatives confirmed" />

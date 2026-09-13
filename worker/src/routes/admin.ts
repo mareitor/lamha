@@ -146,6 +146,52 @@ adminRoutes.patch("/demos/:id/payment-policy", async (c) => {
   return c.json(updated);
 });
 
+// Admin override for budget — the client-facing PATCH /api/demo/:id/budget
+// route is self-service-only by design (plan doc: budget is something a
+// self-service client edits themselves). Migrating a real client project
+// in as a seeded "live" demo needs to set an initial budget regardless of
+// mode, so admin gets its own always-allowed route. Mirrors payment-policy
+// above.
+adminRoutes.patch("/demos/:id/budget", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json<Partial<DemoRecord["budget"]>>();
+  const updated: DemoRecord = { ...demo, budget: { ...demo.budget, ...body } };
+  await putDemo(c.env, updated);
+  return c.json(updated);
+});
+
+// Admin-side onboarding skip — for a real client project migrated in as a
+// seeded "live" demo, the client shouldn't be made to fill out the intake
+// wizard for an event that's already decided and already has real
+// programming/locations imported. The only existing way to flip
+// onboardingComplete was the client-facing POST /api/demo/:id/onboarding
+// (see routes/demo.ts), which requires the client to actually submit the
+// wizard. This lets admin set event/payment-policy details itself and mark
+// onboarding done in one call, so the client lands straight on the
+// dashboard. onboardingComplete defaults to true (that's the point of this
+// route) but can be sent explicitly false to reopen the wizard.
+adminRoutes.patch("/demos/:id/onboarding", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const body = await c.req
+    .json<{
+      onboardingComplete?: boolean;
+      event?: Partial<DemoRecord["event"]>;
+      paymentPolicy?: Partial<DemoRecord["paymentPolicy"]>;
+    }>()
+    .catch(() => ({}) as { onboardingComplete?: boolean });
+  const updated: DemoRecord = {
+    ...demo,
+    event: { ...demo.event, ...body.event },
+    paymentPolicy: { ...demo.paymentPolicy, ...body.paymentPolicy },
+    onboardingComplete: body.onboardingComplete ?? true,
+  };
+  await putDemo(c.env, updated);
+  await upsertIndexEntry(c.env, updated);
+  return c.json(updated);
+});
+
 adminRoutes.patch("/demos/:id/mode", async (c) => {
   const demo = await loadOr404(c);
   if (!demo) return c.json({ error: "not_found" }, 404);

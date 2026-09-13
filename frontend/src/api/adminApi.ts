@@ -88,6 +88,35 @@ export function updatePaymentPolicy(
   });
 }
 
+export function updateBudget(
+  adminPassword: string,
+  id: string,
+  data: Partial<{ totalBudget: number | null; currency: string }>,
+): Promise<DemoRecord> {
+  return apiRequest(`/api/admin/demos/${id}/budget`, { method: "PATCH", body: data, adminPassword });
+}
+
+// Admin-side onboarding skip — for a real client project migrated in as a
+// seeded "live" demo, so the client isn't made to fill out the intake
+// wizard for an event that's already decided. onboardingComplete defaults
+// to true server-side if omitted; pass event/paymentPolicy alongside it to
+// seed those in the same call.
+export function completeOnboarding(
+  adminPassword: string,
+  id: string,
+  data: {
+    onboardingComplete?: boolean;
+    event?: Partial<EventSpecs>;
+    paymentPolicy?: Partial<PaymentPolicy>;
+  } = {},
+): Promise<DemoRecord> {
+  return apiRequest(`/api/admin/demos/${id}/onboarding`, {
+    method: "PATCH",
+    body: data,
+    adminPassword,
+  });
+}
+
 export function setMode(adminPassword: string, id: string, mode: DemoMode): Promise<DemoRecord> {
   return apiRequest(`/api/admin/demos/${id}/mode`, { method: "PATCH", body: { mode }, adminPassword });
 }

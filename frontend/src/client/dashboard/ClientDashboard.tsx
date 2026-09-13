@@ -5,6 +5,7 @@ import { ModeToggle } from "./ModeToggle";
 import { ProgrammingSection } from "./ProgrammingSection";
 import { BudgetSection } from "./BudgetSection";
 import { InvoicesSection } from "./InvoicesSection";
+import { ConfidentialityNotice } from "../shared/ConfidentialityNotice";
 
 export function ClientDashboard({
   demo,
@@ -39,6 +40,8 @@ export function ClientDashboard({
           )}
         </div>
       </header>
+
+      <ConfidentialityNotice />
 
       <ModeToggle demo={demo} />
       <ProgrammingSection demo={demo} onUpdated={onUpdated} />

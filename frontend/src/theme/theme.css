@@ -210,6 +210,27 @@ label {
   color: var(--color-on-dark-muted);
 }
 
+/* Confidentiality notice (Sept 2026) — a subtle-but-always-visible legal
+   line on the client-facing pages, not a dismissible UI banner. Brass
+   left-rule + pill-tint background echoes .pill/--brass rather than
+   introducing a new color, so it reads as part of the platform chrome. */
+.confidentiality-notice {
+  background: var(--color-pill-bg);
+  border-left: 3px solid var(--brass);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin: 18px 0 30px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--color-primary);
+  opacity: 0.78;
+}
+
+.confidentiality-notice em {
+  font-style: italic;
+  opacity: 1;
+}
+
 .container {
   max-width: 960px;
   margin: 0 auto;

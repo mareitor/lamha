@@ -15,7 +15,7 @@ type Tab = "branding" | "event" | "payment" | "programming" | "locations" | "inv
 const TABS: { key: Tab; label: string }[] = [
   { key: "branding", label: "Branding" },
   { key: "event", label: "Event" },
-  { key: "payment", label: "Payment policy" },
+  { key: "payment", label: "Budget & payment" },
   { key: "programming", label: "Programming" },
   { key: "locations", label: "Locations" },
   { key: "invoices", label: "Invoices" },
@@ -226,6 +226,15 @@ function PaymentTab({ demo, password, onSaved }: TabProps) {
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
+  // Total budget lives on demo.budget, not demo.paymentPolicy — separate
+  // state/save so one doesn't clobber the other. Admin previously had no
+  // way to set this at all (the client route is self-service-only by
+  // design); needed once "live" migrated projects have a real budget to
+  // seed. See adminApi.updateBudget / worker PATCH /demos/:id/budget.
+  const [budget, setBudgetForm] = useState(demo.budget);
+  const [budgetSaving, setBudgetSaving] = useState(false);
+  const [budgetJustSaved, setBudgetJustSaved] = useState(false);
+
   async function save() {
     setSaving(true);
     setJustSaved(false);
@@ -238,53 +247,92 @@ function PaymentTab({ demo, password, onSaved }: TabProps) {
     }
   }
 
+  async function saveBudget() {
+    setBudgetSaving(true);
+    setBudgetJustSaved(false);
+    try {
+      onSaved(await adminApi.updateBudget(password, demo.id, budget));
+      setBudgetJustSaved(true);
+      setTimeout(() => setBudgetJustSaved(false), 2500);
+    } finally {
+      setBudgetSaving(false);
+    }
+  }
+
   return (
-    <div className="card" style={{ maxWidth: 480 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <div>
-          <label>Currency</label>
-          <input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} />
+    <>
+      <div className="card" style={{ maxWidth: 480 }}>
+        <h3 style={{ marginTop: 0 }}>Total budget</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div>
+            <label>Total budget</label>
+            <input
+              type="number"
+              value={budget.totalBudget ?? ""}
+              onChange={(e) =>
+                setBudgetForm({ ...budget, totalBudget: e.target.value ? Number(e.target.value) : null })
+              }
+            />
+          </div>
+          <div>
+            <label>Currency</label>
+            <input value={budget.currency} onChange={(e) => setBudgetForm({ ...budget, currency: e.target.value })} />
+          </div>
         </div>
-        <div>
-          <label>Payment terms (days)</label>
+        <button onClick={saveBudget} disabled={budgetSaving} style={{ marginTop: 20 }}>
+          {budgetSaving ? "Saving…" : "Save budget"}
+        </button>
+        {budgetJustSaved && <SavedBadge />}
+      </div>
+
+      <div className="card" style={{ maxWidth: 480, marginTop: 20 }}>
+        <h3 style={{ marginTop: 0 }}>Payment policy</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div>
+            <label>Currency</label>
+            <input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} />
+          </div>
+          <div>
+            <label>Payment terms (days)</label>
+            <input
+              type="number"
+              value={form.paymentTermsDays}
+              onChange={(e) => setForm({ ...form, paymentTermsDays: Number(e.target.value) })}
+            />
+          </div>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <label>Deposit %</label>
           <input
             type="number"
-            value={form.paymentTermsDays}
-            onChange={(e) => setForm({ ...form, paymentTermsDays: Number(e.target.value) })}
+            value={form.depositPercent}
+            onChange={(e) => setForm({ ...form, depositPercent: Number(e.target.value) })}
           />
         </div>
+        <div style={{ marginTop: 16 }}>
+          <label>Invoicing contact name</label>
+          <input
+            value={form.invoicingContactName}
+            onChange={(e) => setForm({ ...form, invoicingContactName: e.target.value })}
+          />
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <label>Invoicing contact email</label>
+          <input
+            value={form.invoicingContactEmail}
+            onChange={(e) => setForm({ ...form, invoicingContactEmail: e.target.value })}
+          />
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <label>Billing address</label>
+          <textarea rows={2} value={form.billingAddress} onChange={(e) => setForm({ ...form, billingAddress: e.target.value })} />
+        </div>
+        <button onClick={save} disabled={saving} style={{ marginTop: 20 }}>
+          {saving ? "Saving…" : "Save payment policy"}
+        </button>
+        {justSaved && <SavedBadge />}
       </div>
-      <div style={{ marginTop: 16 }}>
-        <label>Deposit %</label>
-        <input
-          type="number"
-          value={form.depositPercent}
-          onChange={(e) => setForm({ ...form, depositPercent: Number(e.target.value) })}
-        />
-      </div>
-      <div style={{ marginTop: 16 }}>
-        <label>Invoicing contact name</label>
-        <input
-          value={form.invoicingContactName}
-          onChange={(e) => setForm({ ...form, invoicingContactName: e.target.value })}
-        />
-      </div>
-      <div style={{ marginTop: 16 }}>
-        <label>Invoicing contact email</label>
-        <input
-          value={form.invoicingContactEmail}
-          onChange={(e) => setForm({ ...form, invoicingContactEmail: e.target.value })}
-        />
-      </div>
-      <div style={{ marginTop: 16 }}>
-        <label>Billing address</label>
-        <textarea rows={2} value={form.billingAddress} onChange={(e) => setForm({ ...form, billingAddress: e.target.value })} />
-      </div>
-      <button onClick={save} disabled={saving} style={{ marginTop: 20 }}>
-        {saving ? "Saving…" : "Save payment policy"}
-      </button>
-      {justSaved && <SavedBadge />}
-    </div>
+    </>
   );
 }
 

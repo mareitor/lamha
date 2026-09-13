@@ -212,6 +212,27 @@
   margin-top: 10px;
 }
 
+/* Applied to a .supplier-field wrapper when that specific field failed
+   validation on submit, so people can see exactly what's missing instead
+   of just a generic error line at the bottom. */
+.supplier-field.invalid > label {
+  color: var(--overdue);
+}
+
+.supplier-field.invalid input,
+.supplier-field.invalid textarea,
+.supplier-field.invalid select {
+  border-color: var(--overdue);
+  box-shadow: 0 0 0 1px var(--overdue);
+}
+
+.supplier-field.invalid .supplier-type-grid,
+.supplier-field.invalid .supplier-specialty-search {
+  outline: 1.5px solid var(--overdue);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
 @media (max-width: 560px) {
   .supplier-field-row {
     flex-direction: column;

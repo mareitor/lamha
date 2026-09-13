@@ -70,12 +70,19 @@ export function SupplierIntakePage() {
   const [whatsapp, setWhatsapp] = useState<boolean | null>(null);
 
   const [error, setError] = useState("");
+  const [missingFields, setMissingFields] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const fieldsInOrder = useMemo(() => CREATIVE_FIELDS.filter((f) => selectedFields.has(f)), [selectedFields]);
 
   const query = serviceSearch.trim().toLowerCase();
+
+  // Applied to a field's wrapper div so a failed submit highlights exactly
+  // the fields that need attention, instead of only a generic error line.
+  function fieldClass(key: string) {
+    return `supplier-field${missingFields.has(key) ? " invalid" : ""}`;
+  }
 
   function toggleField(field: string) {
     setSelectedFields((prev) => {
@@ -110,22 +117,29 @@ export function SupplierIntakePage() {
     const types = fieldsInOrder;
     const specialty = Array.from(selectedServices);
 
-    if (!legal || !aboutTrim || !techTrim || !priceTrim || !emailTrim || !phoneTrim) {
-      setError("Please fill in all required fields.");
-      return;
-    }
-    if (types.length === 0) {
-      setError("Please select at least one Creative Field.");
-      return;
-    }
-    if (specialty.length === 0) {
-      setError("Please select at least one Creative Service.");
-      return;
-    }
+    // Collect every missing/invalid field at once (rather than bailing on
+    // the first one) so the highlighted fields on submit show the person
+    // everything they still need to fix in one pass.
+    const missing = new Set<string>();
+    if (!legal) missing.add("legalName");
+    if (!aboutTrim) missing.add("about");
+    if (!techTrim) missing.add("tech");
+    if (!priceTrim) missing.add("price");
+    if (!emailTrim) missing.add("email");
+    if (!phoneTrim) missing.add("phone");
+    if (types.length === 0) missing.add("types");
+    if (specialty.length === 0) missing.add("specialty");
     if (!websiteTrim && !socialTrim) {
-      setError("Please provide at least a website or a social media link.");
+      missing.add("website");
+      missing.add("social");
+    }
+
+    if (missing.size > 0) {
+      setMissingFields(missing);
+      setError("Please fill in the highlighted fields below.");
       return;
     }
+    setMissingFields(new Set());
 
     const submission: SupplierSubmission = {
       id: uid(),
@@ -188,7 +202,7 @@ export function SupplierIntakePage() {
     <div className="intake-page">
       <div className="intake-content">
         <div className="card intake-card supplier-card">
-          <p className="intake-eyebrow">Basa Studio — Berlin · Riyadh</p>
+          <p className="intake-eyebrow">Creative Network — Berlin · Riyadh</p>
           <h1 style={{ marginBottom: 8 }}>Join our network of creatives.</h1>
           <p style={{ opacity: 0.78, fontSize: "1.02rem", marginBottom: 28 }}>
             Submit your information to get considered for upcoming projects and activations in KSA and the Gulf
@@ -197,7 +211,7 @@ export function SupplierIntakePage() {
 
           <form onSubmit={handleSubmit}>
             <div className="supplier-field-row">
-              <div className="supplier-field">
+              <div className={fieldClass("legalName")}>
                 <label>
                   Your name <span className="supplier-req">*</span>
                 </label>
@@ -211,7 +225,7 @@ export function SupplierIntakePage() {
               </div>
             </div>
 
-            <div className="supplier-field">
+            <div className={fieldClass("types")}>
               <label>
                 Creative Field <span className="supplier-req">*</span>{" "}
                 <span className="supplier-hint" style={{ display: "inline" }}>
@@ -228,7 +242,7 @@ export function SupplierIntakePage() {
               </div>
             </div>
 
-            <div className="supplier-field">
+            <div className={fieldClass("specialty")}>
               <label>
                 Creative Service <span className="supplier-req">*</span>{" "}
                 <span className="supplier-hint" style={{ display: "inline" }}>
@@ -279,7 +293,7 @@ export function SupplierIntakePage() {
 
             <hr className="supplier-divider" />
 
-            <div className="supplier-field">
+            <div className={fieldClass("about")}>
               <label>
                 Tell us more about your work <span className="supplier-req">*</span>
                 <span className="supplier-hint">
@@ -291,11 +305,11 @@ export function SupplierIntakePage() {
             </div>
 
             <div className="supplier-field-row">
-              <div className="supplier-field">
+              <div className={fieldClass("website")}>
                 <label>Website</label>
                 <input placeholder="https://..." value={website} onChange={(e) => setWebsite(e.target.value)} />
               </div>
-              <div className="supplier-field">
+              <div className={fieldClass("social")}>
                 <label>Social media link</label>
                 <input
                   placeholder="instagram.com/..."
@@ -306,7 +320,7 @@ export function SupplierIntakePage() {
             </div>
             <p className="supplier-note">At least one of website or social media link is required.</p>
 
-            <div className="supplier-field">
+            <div className={fieldClass("tech")}>
               <label>
                 What are your technical requirements? <span className="supplier-req">*</span>
                 <span className="supplier-hint">
@@ -316,7 +330,7 @@ export function SupplierIntakePage() {
               <textarea rows={3} value={tech} onChange={(e) => setTech(e.target.value)} />
             </div>
 
-            <div className="supplier-field">
+            <div className={fieldClass("price")}>
               <label>
                 Describe your standard services and their estimated price range <span className="supplier-req">*</span>
                 <span className="supplier-hint">
@@ -327,13 +341,13 @@ export function SupplierIntakePage() {
             </div>
 
             <div className="supplier-field-row">
-              <div className="supplier-field">
+              <div className={fieldClass("email")}>
                 <label>
                   Your email address <span className="supplier-req">*</span>
                 </label>
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
-              <div className="supplier-field">
+              <div className={fieldClass("phone")}>
                 <label>
                   Your phone number <span className="supplier-req">*</span>
                 </label>

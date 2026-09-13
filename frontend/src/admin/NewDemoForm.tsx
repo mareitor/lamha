@@ -9,6 +9,11 @@ export function NewDemoForm() {
   const { password } = useAdminAuth();
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState("");
+  // "demo" = the usual 14-day prospect-pitch flow. "live" = a real,
+  // ongoing client engagement (Sept 2026 migration of the old
+  // riyadh-winter-2026 planners) — never expires, no countdown/demo
+  // language anywhere in the client view. See types/index.ts DemoKind.
+  const [kind, setKind] = useState<"demo" | "live">("demo");
   const [logo, setLogo] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [accentColor, setAccentColor] = useState<string | null>(null);
@@ -40,7 +45,7 @@ export function NewDemoForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await createDemo(password, { companyName: companyName.trim(), logo, accentColor });
+      const res = await createDemo(password, { companyName: companyName.trim(), logo, accentColor, kind });
       setResult({ demoId: res.demo.id, shareUrl: res.shareUrl, warning: res.warning });
     } catch {
       setError("Couldn't create the demo — try again.");
@@ -54,7 +59,7 @@ export function NewDemoForm() {
     return (
       <AdminLayout>
         <div className="card" style={{ maxWidth: 520 }}>
-          <h2>Demo created</h2>
+          <h2>{kind === "live" ? "Project created" : "Demo created"}</h2>
           {result.warning && <p style={{ color: "#B08D2B" }}>{result.warning}</p>}
           <label>Shareable link</label>
           <input readOnly value={fullUrl} onFocus={(e) => e.currentTarget.select()} />
@@ -91,6 +96,30 @@ export function NewDemoForm() {
             placeholder="Acme Corp"
             autoFocus
           />
+
+          <div style={{ marginTop: 16 }}>
+            <label>Kind</label>
+            <div style={{ display: "flex", gap: 16, marginTop: 4 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400 }}>
+                <input
+                  type="radio"
+                  name="kind"
+                  checked={kind === "demo"}
+                  onChange={() => setKind("demo")}
+                />
+                Demo (14-day prospect pitch)
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400 }}>
+                <input
+                  type="radio"
+                  name="kind"
+                  checked={kind === "live"}
+                  onChange={() => setKind("live")}
+                />
+                Live (real client, never expires)
+              </label>
+            </div>
+          </div>
 
           <div style={{ marginTop: 16 }}>
             <label htmlFor="logo">Logo (optional — can add later)</label>

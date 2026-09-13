@@ -5,8 +5,9 @@ import { listDemos, resyncIndex } from "../api/adminApi";
 import type { DemoIndexEntry } from "../types";
 import { AdminLayout } from "./AdminLayout";
 
-function formatExpiry(expiresAt: number): string {
-  const ms = expiresAt - Date.now();
+function formatExpiry(demo: DemoIndexEntry): string {
+  if (demo.kind === "live") return "—"; // never expires — see DemoKind
+  const ms = demo.expiresAt - Date.now();
   if (ms <= 0) return "expired";
   const days = Math.floor(ms / (24 * 60 * 60 * 1000));
   return `${days}d left`;
@@ -87,6 +88,7 @@ export function AdminDashboard() {
               <tr style={{ textAlign: "left", background: "var(--color-background)" }}>
                 <th style={{ padding: 12 }}>Company</th>
                 <th style={{ padding: 12 }}>Client link</th>
+                <th style={{ padding: 12 }}>Kind</th>
                 <th style={{ padding: 12 }}>Mode</th>
                 <th style={{ padding: 12 }}>Status</th>
                 <th style={{ padding: 12 }}>Expires</th>
@@ -113,10 +115,22 @@ export function AdminDashboard() {
                     </div>
                   </td>
                   <td style={{ padding: 12 }}>
+                    <span
+                      className="pill"
+                      style={
+                        demo.kind === "live"
+                          ? { background: "var(--color-primary)", color: "var(--color-on-dark)" }
+                          : undefined
+                      }
+                    >
+                      {demo.kind === "live" ? "Live" : "Demo"}
+                    </span>
+                  </td>
+                  <td style={{ padding: 12 }}>
                     <span className="pill">{demo.mode === "self-service" ? "Self-service" : "Managed"}</span>
                   </td>
                   <td style={{ padding: 12 }}>{demo.status}</td>
-                  <td style={{ padding: 12 }}>{formatExpiry(demo.expiresAt)}</td>
+                  <td style={{ padding: 12 }}>{formatExpiry(demo)}</td>
                   <td style={{ padding: 12, textAlign: "right" }}>
                     <Link to={`/admin/demos/${demo.id}`}>Edit →</Link>
                   </td>

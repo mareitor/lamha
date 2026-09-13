@@ -51,15 +51,16 @@ adminRoutes.post("/demos/resync-index", async (c) => {
   return c.json({ demos: index });
 });
 
-// Create demo: multipart form { companyName, logo? (file), accentColor? }
+// Create demo: multipart form { companyName, logo? (file), accentColor?, kind? }
 adminRoutes.post("/demos", async (c) => {
   const body = await c.req.parseBody();
   const companyName = typeof body.companyName === "string" ? body.companyName.trim() : "";
   if (!companyName) {
     return c.json({ error: "companyName is required" }, 400);
   }
+  const kind = body.kind === "live" ? "live" : "demo";
 
-  const demo = await createDemo(c.env, { companyName });
+  const demo = await createDemo(c.env, { companyName, kind });
 
   const logo = body.logo;
   if (logo instanceof File && logo.size > 0) {
@@ -157,6 +158,31 @@ adminRoutes.patch("/demos/:id/mode", async (c) => {
     mode: body.mode,
     modeSetBy: "admin",
     modeUpdatedAt: Date.now(),
+  };
+  await putDemo(c.env, updated);
+  await upsertIndexEntry(c.env, updated);
+  return c.json(updated);
+});
+
+// Convert between the 14-day prospect-pitch flow and a real, ongoing
+// client engagement (Sept 2026 — see DemoKind in worker/src/types). Only
+// touches expiresAt/status when switching TO "live" (parks the countdown
+// far in the future, cosmetic since isExpired() ignores it for "live");
+// switching back to "demo" leaves expiresAt as-is so admin can follow up
+// with an explicit /extend if a fresh 14-day window is wanted.
+adminRoutes.patch("/demos/:id/kind", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json<{ kind: DemoRecord["kind"] }>().catch(() => null);
+  if (body?.kind !== "demo" && body?.kind !== "live") {
+    return c.json({ error: "invalid_kind" }, 400);
+  }
+  const updated: DemoRecord = {
+    ...demo,
+    kind: body.kind,
+    ...(body.kind === "live"
+      ? { expiresAt: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000, status: "active" as const }
+      : {}),
   };
   await putDemo(c.env, updated);
   await upsertIndexEntry(c.env, updated);

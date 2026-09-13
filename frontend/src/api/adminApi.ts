@@ -3,6 +3,7 @@ import type {
   DemoIndexEntry,
   DemoRecord,
   DemoMode,
+  DemoKind,
   EventSpecs,
   PaymentPolicy,
   ProgrammingEntry,
@@ -32,13 +33,23 @@ export function resyncIndex(adminPassword: string): Promise<{ demos: DemoIndexEn
 
 export function createDemo(
   adminPassword: string,
-  data: { companyName: string; logo?: File | null; accentColor?: string | null },
+  data: { companyName: string; logo?: File | null; accentColor?: string | null; kind?: DemoKind },
 ): Promise<{ demo: DemoRecord; shareUrl: string; warning?: string }> {
   const form = new FormData();
   form.set("companyName", data.companyName);
   if (data.logo) form.set("logo", data.logo);
   if (data.accentColor) form.set("accentColor", data.accentColor);
+  if (data.kind) form.set("kind", data.kind);
   return apiRequest("/api/admin/demos", { method: "POST", body: form, adminPassword });
+}
+
+// Converts an existing demo between the 14-day prospect-pitch flow and a
+// real, ongoing client engagement (Sept 2026 — see DemoKind in
+// types/index.ts). Switching to "live" parks expiresAt far in the future
+// server-side; switching back to "demo" leaves expiresAt as-is (follow up
+// with extendDemo if a fresh 14-day window is wanted).
+export function updateKind(adminPassword: string, id: string, kind: DemoKind): Promise<DemoRecord> {
+  return apiRequest(`/api/admin/demos/${id}/kind`, { method: "PATCH", body: { kind }, adminPassword });
 }
 
 export function getDemo(adminPassword: string, id: string): Promise<DemoRecord> {

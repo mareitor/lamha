@@ -20,7 +20,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "locations", label: "Locations" },
   { key: "invoices", label: "Invoices" },
   { key: "matches", label: "AI Matches" },
-  { key: "mode", label: "Mode" },
+  { key: "mode", label: "Mode & kind" },
   { key: "danger", label: "Danger zone" },
 ];
 
@@ -308,6 +308,7 @@ function SavedBadge() {
 
 function ModeTab({ demo, password, onSaved }: TabProps) {
   const [saving, setSaving] = useState(false);
+  const [kindSaving, setKindSaving] = useState(false);
 
   async function setMode(mode: DemoRecord["mode"]) {
     setSaving(true);
@@ -318,27 +319,61 @@ function ModeTab({ demo, password, onSaved }: TabProps) {
     }
   }
 
+  // Convert between the 14-day prospect-pitch flow and a real, ongoing
+  // client engagement (Sept 2026 — see DemoKind in types/index.ts). This
+  // is separate from "mode" (managed vs self-service) above — kind
+  // controls expiry/demo-language, mode controls who can edit programming.
+  async function setKind(kind: DemoRecord["kind"]) {
+    setKindSaving(true);
+    try {
+      onSaved(await adminApi.updateKind(password, demo.id, kind));
+    } finally {
+      setKindSaving(false);
+    }
+  }
+
   return (
-    <div className="card" style={{ maxWidth: 480 }}>
-      <p>
-        Current mode: <strong>{demo.mode === "self-service" ? "Self-service" : "Fully managed"}</strong>{" "}
-        <span className="muted" style={{ fontSize: "0.8rem" }}>
-          (last set by {demo.modeSetBy})
-        </span>
-      </p>
-      <p style={{ fontSize: "0.85rem", opacity: 0.75 }}>
-        The client can also change this themselves from inside their demo at any time — this is an override,
-        not the only place it's set.
-      </p>
-      <div style={{ display: "flex", gap: 12 }}>
-        <button disabled={saving || demo.mode === "managed"} onClick={() => setMode("managed")}>
-          Set to managed
-        </button>
-        <button disabled={saving || demo.mode === "self-service"} onClick={() => setMode("self-service")}>
-          Set to self-service
-        </button>
+    <>
+      <div className="card" style={{ maxWidth: 480 }}>
+        <p>
+          Currently: <strong>{demo.kind === "live" ? "Live client project" : "Demo"}</strong>
+        </p>
+        <p style={{ fontSize: "0.85rem", opacity: 0.75 }}>
+          {demo.kind === "live"
+            ? "This is a real, ongoing client engagement — no countdown, no expiry, no demo language anywhere in the client view."
+            : "This is a 14-day prospect-pitch demo — it shows a countdown and expires automatically."}
+        </p>
+        <div style={{ display: "flex", gap: 12 }}>
+          <button disabled={kindSaving || demo.kind === "demo"} onClick={() => setKind("demo")}>
+            Set to demo
+          </button>
+          <button disabled={kindSaving || demo.kind === "live"} onClick={() => setKind("live")}>
+            Set to live client project
+          </button>
+        </div>
       </div>
-    </div>
+
+      <div className="card" style={{ maxWidth: 480, marginTop: 20 }}>
+        <p>
+          Current mode: <strong>{demo.mode === "self-service" ? "Self-service" : "Fully managed"}</strong>{" "}
+          <span className="muted" style={{ fontSize: "0.8rem" }}>
+            (last set by {demo.modeSetBy})
+          </span>
+        </p>
+        <p style={{ fontSize: "0.85rem", opacity: 0.75 }}>
+          The client can also change this themselves from inside their demo at any time — this is an override,
+          not the only place it's set.
+        </p>
+        <div style={{ display: "flex", gap: 12 }}>
+          <button disabled={saving || demo.mode === "managed"} onClick={() => setMode("managed")}>
+            Set to managed
+          </button>
+          <button disabled={saving || demo.mode === "self-service"} onClick={() => setMode("self-service")}>
+            Set to self-service
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -370,13 +405,25 @@ function DangerZoneTab({ demo, password }: { demo: DemoRecord; password: string 
 
   return (
     <div className="card" style={{ maxWidth: 480 }}>
-      <h3>Extend</h3>
-      <p style={{ fontSize: "0.85rem" }}>
-        Expires {new Date(demo.expiresAt).toLocaleString()}. Extending adds 14 days from right now.
-      </p>
-      <button onClick={extend} disabled={extending}>
-        {extending ? "Extending…" : "Extend 14 days"}
-      </button>
+      {demo.kind === "live" ? (
+        <>
+          <h3>Extend</h3>
+          <p style={{ fontSize: "0.85rem" }}>
+            This is a live client project — it doesn't expire, so there's nothing to extend. Use the Mode tab
+            to switch it back to a demo if it ever needs a 14-day countdown again.
+          </p>
+        </>
+      ) : (
+        <>
+          <h3>Extend</h3>
+          <p style={{ fontSize: "0.85rem" }}>
+            Expires {new Date(demo.expiresAt).toLocaleString()}. Extending adds 14 days from right now.
+          </p>
+          <button onClick={extend} disabled={extending}>
+            {extending ? "Extending…" : "Extend 14 days"}
+          </button>
+        </>
+      )}
 
       <h3 style={{ marginTop: 32 }}>Delete demo</h3>
       <p style={{ fontSize: "0.85rem" }}>

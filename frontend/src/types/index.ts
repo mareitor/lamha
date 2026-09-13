@@ -4,6 +4,10 @@
 
 export type DemoMode = "managed" | "self-service";
 export type DemoStatus = "active" | "expired" | "archived";
+// "demo" = the original 14-day prospect-pitch flow. "live" = a real,
+// ongoing client engagement — never expires, never shows demo/countdown
+// language. Mirrors worker/src/types/index.ts.
+export type DemoKind = "demo" | "live";
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
 export type ProgrammingStatus = "proposed" | "confirmed" | "cancelled";
 
@@ -82,6 +86,7 @@ export interface DemoRecord {
   createdAt: number;
   expiresAt: number;
   status: DemoStatus;
+  kind: DemoKind;
   mode: DemoMode;
   modeSetBy: "client" | "admin";
   modeUpdatedAt: number;
@@ -102,6 +107,7 @@ export interface DemoIndexEntry {
   expiresAt: number;
   mode: DemoMode;
   status: DemoStatus;
+  kind: DemoKind;
 }
 
 // The real supplier/creative database — account-wide, not per-demo.

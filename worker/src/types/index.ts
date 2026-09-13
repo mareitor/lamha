@@ -3,6 +3,15 @@
 
 export type DemoMode = "managed" | "self-service";
 export type DemoStatus = "active" | "expired" | "archived";
+// "demo" = the original 14-day prospect-pitch flow (countdown badge,
+// expiry takeover, everything the plan doc originally described).
+// "live" = a real, ongoing client engagement using the same planner —
+// added Sept 2026 for migrating the riyadh-winter-2026 prototype's real
+// clients onto Lamha. Never expires, never shows demo language, and
+// isExpired() below always returns false for it regardless of
+// expiresAt — admin can still "extend" a demo into a live project later
+// without needing a separate migration path.
+export type DemoKind = "demo" | "live";
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
 export type ProgrammingStatus = "proposed" | "confirmed" | "cancelled";
 
@@ -84,6 +93,7 @@ export interface DemoRecord {
   createdAt: number;
   expiresAt: number;
   status: DemoStatus;
+  kind: DemoKind;
   createdBy: "admin";
 
   mode: DemoMode;
@@ -304,6 +314,7 @@ export interface DemoIndexEntry {
   expiresAt: number;
   mode: DemoMode;
   status: DemoStatus;
+  kind: DemoKind;
 }
 
 // Client-facing sanitized view: strips admin-only internals

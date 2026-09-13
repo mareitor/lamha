@@ -1,4 +1,4 @@
-import type { CreativeRegistryEntry, CreativeService, Env, DemoIndexEntry, DemoRecord } from "../types";
+import type { CreativeRegistryEntry, CreativeService, Env, DemoIndexEntry, DemoRecord, DemoKind } from "../types";
 import { emptyServiceHardFacts } from "../types";
 import { generateDemoId, generateItemId } from "./ids";
 import { fieldForService } from "./creativeTaxonomy";
@@ -99,6 +99,7 @@ function toIndexEntry(demo: DemoRecord): DemoIndexEntry {
     expiresAt: demo.expiresAt,
     mode: demo.mode,
     status: demo.status,
+    kind: demo.kind,
   };
 }
 
@@ -153,13 +154,15 @@ export function computeStatus(demo: Pick<DemoRecord, "expiresAt" | "status">): "
   return Date.now() >= demo.expiresAt ? "expired" : "active";
 }
 
-export function isExpired(demo: Pick<DemoRecord, "expiresAt">): boolean {
+export function isExpired(demo: Pick<DemoRecord, "expiresAt" | "kind">): boolean {
+  if (demo.kind === "live") return false; // real client engagements never expire
   return Date.now() >= demo.expiresAt;
 }
 
 interface CreateDemoInput {
   companyName: string;
   companyDisplayName?: string;
+  kind?: DemoKind;
 }
 
 // Seeded onto every new demo so Locations isn't an empty tab on day
@@ -204,13 +207,18 @@ export async function createDemo(env: Env, input: CreateDemoInput): Promise<Demo
   }
 
   const now = Date.now();
+  const kind: DemoKind = input.kind ?? "demo";
   const demo: DemoRecord = {
     id,
     schemaVersion: 2,
     companyName: input.companyName,
     createdAt: now,
-    expiresAt: now + DEMO_TTL_MS,
+    // Cosmetic for "live" (isExpired() above ignores this value for
+    // that kind) — kept far in the future so anything reading expiresAt
+    // directly without checking kind doesn't misreport.
+    expiresAt: kind === "live" ? now + 100 * 365 * 24 * 60 * 60 * 1000 : now + DEMO_TTL_MS,
     status: "active",
+    kind,
     createdBy: "admin",
     mode: "managed",
     modeSetBy: "admin",

@@ -66,7 +66,7 @@ export function DemoShell() {
         <ExpiredNotice />
       ) : (
         <>
-          <CountdownBadge expiresAt={demo.expiresAt} />
+          {demo.kind !== "live" && <CountdownBadge expiresAt={demo.expiresAt} />}
           {demo.onboardingComplete ? (
             <Routes>
               <Route index element={<ClientDashboard demo={demo} onUpdated={handleUpdated} />} />

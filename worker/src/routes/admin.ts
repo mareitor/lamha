@@ -128,6 +128,24 @@ adminRoutes.patch("/demos/:id/branding", async (c) => {
   return c.json(updated);
 });
 
+// Renames the internal admin-only label (demo.companyName) -- shown in
+// the admin dashboard list and this demo's editor header, never on the
+// client-facing pages (those read event.eventName / branding.company
+// DisplayName, both separately editable). Added Sept 2026 when a real
+// migrated project's admin label needed correcting after the fact —
+// previously companyName could only be set once, at creation.
+adminRoutes.patch("/demos/:id/company-name", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json<{ companyName?: string }>().catch(() => ({}) as { companyName?: string });
+  const companyName = (body.companyName ?? "").trim();
+  if (!companyName) return c.json({ error: "companyName is required" }, 400);
+  const updated: DemoRecord = { ...demo, companyName };
+  await putDemo(c.env, updated);
+  await upsertIndexEntry(c.env, updated);
+  return c.json(updated);
+});
+
 adminRoutes.patch("/demos/:id/event", async (c) => {
   const demo = await loadOr404(c);
   if (!demo) return c.json({ error: "not_found" }, 404);
@@ -146,17 +164,69 @@ adminRoutes.patch("/demos/:id/payment-policy", async (c) => {
   return c.json(updated);
 });
 
-// Admin override for budget — the client-facing PATCH /api/demo/:id/budget
-// route is self-service-only by design (plan doc: budget is something a
-// self-service client edits themselves). Migrating a real client project
-// in as a seeded "live" demo needs to set an initial budget regardless of
-// mode, so admin gets its own always-allowed route. Mirrors payment-policy
-// above.
+// Admin override for total budget/currency. This is now the ONLY way to
+// set budget at all — the client-facing self-service budget route was
+// removed (Sept 2026, Mario: budget is admin-only, no client-visible
+// Budget section anymore). Sets totalBudget/currency; opsAndTeamCosts has
+// its own CRUD below since it's a list, not a scalar field.
 adminRoutes.patch("/demos/:id/budget", async (c) => {
   const demo = await loadOr404(c);
   if (!demo) return c.json({ error: "not_found" }, 404);
-  const body = await c.req.json<Partial<DemoRecord["budget"]>>();
+  const body = await c.req.json<Partial<Pick<DemoRecord["budget"], "totalBudget" | "currency">>>();
   const updated: DemoRecord = { ...demo, budget: { ...demo.budget, ...body } };
+  await putDemo(c.env, updated);
+  return c.json(updated);
+});
+
+// ---- Ops & team costs (Sept 2026) — admin-only internal cost tracking,
+// separate from client-facing programming/invoices. Mirrors what the old
+// per-project tool already tracked for at least one real client (program
+// manager / assistant staffing costs) — never sent to the client
+// (sanitizeDemo strips the whole `budget` object). ----
+
+adminRoutes.post("/demos/:id/budget/ops-items", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json<{ name?: string; amount?: number }>().catch(() => ({}) as { name?: string; amount?: number });
+  const name = (body.name ?? "").trim();
+  if (!name) return c.json({ error: "name is required" }, 400);
+  const item = { id: generateItemId(), name, amount: body.amount ?? 0 };
+  const updated: DemoRecord = {
+    ...demo,
+    budget: { ...demo.budget, opsAndTeamCosts: [...demo.budget.opsAndTeamCosts, item] },
+  };
+  await putDemo(c.env, updated);
+  return c.json(updated);
+});
+
+adminRoutes.patch("/demos/:id/budget/ops-items/:itemId", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const itemId = c.req.param("itemId");
+  const body = await c.req.json<{ name?: string; amount?: number }>().catch(() => ({}) as { name?: string; amount?: number });
+  let found = false;
+  const opsAndTeamCosts = demo.budget.opsAndTeamCosts.map((item) => {
+    if (item.id !== itemId) return item;
+    found = true;
+    return { ...item, ...body, id: item.id };
+  });
+  if (!found) return c.json({ error: "not_found" }, 404);
+  const updated: DemoRecord = { ...demo, budget: { ...demo.budget, opsAndTeamCosts } };
+  await putDemo(c.env, updated);
+  return c.json(updated);
+});
+
+adminRoutes.delete("/demos/:id/budget/ops-items/:itemId", async (c) => {
+  const demo = await loadOr404(c);
+  if (!demo) return c.json({ error: "not_found" }, 404);
+  const itemId = c.req.param("itemId");
+  const updated: DemoRecord = {
+    ...demo,
+    budget: {
+      ...demo.budget,
+      opsAndTeamCosts: demo.budget.opsAndTeamCosts.filter((item) => item.id !== itemId),
+    },
+  };
   await putDemo(c.env, updated);
   return c.json(updated);
 });

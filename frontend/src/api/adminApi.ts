@@ -9,6 +9,7 @@ import type {
   ProgrammingEntry,
   InvoiceEntry,
   Location,
+  OpsCostItem,
   CreativeRegistryEntry,
   CreativeMatch,
   Fact,
@@ -68,6 +69,18 @@ export function updateBranding(
   return apiRequest(`/api/admin/demos/${id}/branding`, { method: "PATCH", body: form, adminPassword });
 }
 
+// Renames the internal admin-only label (demo.companyName) -- the admin
+// dashboard list and this demo's editor header, never shown to the
+// client (client pages read event.eventName / branding.companyDisplayName
+// instead, both separately editable).
+export function renameCompany(adminPassword: string, id: string, companyName: string): Promise<DemoRecord> {
+  return apiRequest(`/api/admin/demos/${id}/company-name`, {
+    method: "PATCH",
+    body: { companyName },
+    adminPassword,
+  });
+}
+
 export function updateEvent(
   adminPassword: string,
   id: string,
@@ -94,6 +107,34 @@ export function updateBudget(
   data: Partial<{ totalBudget: number | null; currency: string }>,
 ): Promise<DemoRecord> {
   return apiRequest(`/api/admin/demos/${id}/budget`, { method: "PATCH", body: data, adminPassword });
+}
+
+// ---- Ops & team costs (admin-only internal cost tracking, never sent
+// to the client -- see worker's sanitizeDemo) ----
+
+export function addOpsCostItem(
+  adminPassword: string,
+  id: string,
+  data: { name: string; amount: number },
+): Promise<DemoRecord> {
+  return apiRequest(`/api/admin/demos/${id}/budget/ops-items`, { method: "POST", body: data, adminPassword });
+}
+
+export function updateOpsCostItem(
+  adminPassword: string,
+  id: string,
+  itemId: string,
+  data: Partial<Pick<OpsCostItem, "name" | "amount">>,
+): Promise<DemoRecord> {
+  return apiRequest(`/api/admin/demos/${id}/budget/ops-items/${itemId}`, {
+    method: "PATCH",
+    body: data,
+    adminPassword,
+  });
+}
+
+export function deleteOpsCostItem(adminPassword: string, id: string, itemId: string): Promise<DemoRecord> {
+  return apiRequest(`/api/admin/demos/${id}/budget/ops-items/${itemId}`, { method: "DELETE", adminPassword });
 }
 
 // Admin-side onboarding skip — for a real client project migrated in as a

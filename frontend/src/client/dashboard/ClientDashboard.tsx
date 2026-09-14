@@ -3,8 +3,7 @@ import type { DemoRecord } from "../../types";
 import { useTheme } from "../../theme/ThemeProvider";
 import { ModeToggle } from "./ModeToggle";
 import { ProgrammingSection } from "./ProgrammingSection";
-import { BudgetSection } from "./BudgetSection";
-import { InvoicesSection } from "./InvoicesSection";
+import { SeasonAtAGlance } from "./SeasonAtAGlance";
 import { ConfidentialityNotice } from "../shared/ConfidentialityNotice";
 
 export function ClientDashboard({
@@ -45,8 +44,10 @@ export function ClientDashboard({
 
       <ModeToggle demo={demo} />
       <ProgrammingSection demo={demo} onUpdated={onUpdated} />
-      <BudgetSection demo={demo} onUpdated={onUpdated} />
-      <InvoicesSection demo={demo} />
+      {/* Budget section removed from the client view (Sept 2026, Mario)
+          -- total budget / cost tracking is admin-only now. See
+          DemoEditor's Budget & payment tab. */}
+      <SeasonAtAGlance demo={demo} />
     </div>
   );
 }

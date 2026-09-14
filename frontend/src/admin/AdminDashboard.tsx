@@ -45,7 +45,7 @@ export function AdminDashboard() {
       const { demos } = await listDemos(password);
       setDemos(demos);
     } catch {
-      setError("Couldn't load demos.");
+      setError("Couldn't load projects.");
     }
   }, [password]);
 
@@ -67,9 +67,9 @@ export function AdminDashboard() {
   return (
     <AdminLayout>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h1 style={{ margin: 0 }}>Demos</h1>
+        <h1 style={{ margin: 0 }}>Projects</h1>
         <Link to="/admin/demos/new">
-          <button>+ New Demo</button>
+          <button>+ New Project</button>
         </Link>
       </div>
 
@@ -78,7 +78,7 @@ export function AdminDashboard() {
       {demos === null && !error && <p>Loading…</p>}
 
       {demos && demos.length === 0 && (
-        <p>No demos yet — create one to get a shareable link.</p>
+        <p>No projects yet — create one to get a shareable link.</p>
       )}
 
       {demos && demos.length > 0 && (

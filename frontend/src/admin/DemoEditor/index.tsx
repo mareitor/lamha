@@ -37,7 +37,7 @@ export function DemoEditor() {
       const d = await adminApi.getDemo(password, id);
       setDemo(d);
     } catch {
-      setError("Couldn't load this demo.");
+      setError("Couldn't load this project.");
     }
   }, [password, id]);
 
@@ -97,6 +97,26 @@ function BrandingTab({ demo, password, onSaved }: TabProps) {
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
+  // Internal name (demo.companyName) -- separate field from Display name
+  // above (branding.companyDisplayName, which the client actually sees).
+  // This one is admin-only: the dashboard list and this page's own header.
+  // Own state/save so a typo fix here can't clobber the branding save.
+  const [companyName, setCompanyNameField] = useState(demo.companyName);
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameJustSaved, setNameJustSaved] = useState(false);
+
+  async function saveName() {
+    setNameSaving(true);
+    setNameJustSaved(false);
+    try {
+      onSaved(await adminApi.renameCompany(password, demo.id, companyName));
+      setNameJustSaved(true);
+      setTimeout(() => setNameJustSaved(false), 2500);
+    } finally {
+      setNameSaving(false);
+    }
+  }
+
   async function save() {
     setSaving(true);
     setJustSaved(false);
@@ -117,8 +137,22 @@ function BrandingTab({ demo, password, onSaved }: TabProps) {
 
   return (
     <div className="card" style={{ maxWidth: 480 }}>
-      <label>Display name</label>
-      <input value={companyDisplayName} onChange={(e) => setCompanyDisplayName(e.target.value)} />
+      <label>Internal name</label>
+      <p style={{ fontSize: "0.8rem", opacity: 0.65, marginTop: -4, marginBottom: 8 }}>
+        Admin list and this page's header only — the client never sees this.
+      </p>
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+        <input value={companyName} onChange={(e) => setCompanyNameField(e.target.value)} style={{ flex: 1 }} />
+        <button onClick={saveName} disabled={nameSaving} className="btn-secondary" style={{ whiteSpace: "nowrap" }}>
+          {nameSaving ? "Saving…" : "Save"}
+        </button>
+      </div>
+      {nameJustSaved && <SavedBadge />}
+
+      <div style={{ marginTop: 24 }}>
+        <label>Display name</label>
+        <input value={companyDisplayName} onChange={(e) => setCompanyDisplayName(e.target.value)} />
+      </div>
 
       <div style={{ marginTop: 16 }}>
         <label>Accent color</label>
@@ -263,6 +297,9 @@ function PaymentTab({ demo, password, onSaved }: TabProps) {
     <>
       <div className="card" style={{ maxWidth: 480 }}>
         <h3 style={{ marginTop: 0 }}>Total budget</h3>
+        <p style={{ fontSize: "0.8rem", opacity: 0.65, marginTop: -8 }}>
+          Admin-only — this whole card, and the internal costs below, are never shown to the client.
+        </p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
             <label>Total budget</label>
@@ -284,6 +321,8 @@ function PaymentTab({ demo, password, onSaved }: TabProps) {
         </button>
         {budgetJustSaved && <SavedBadge />}
       </div>
+
+      <BudgetSpendCard demo={demo} password={password} onSaved={onSaved} />
 
       <div className="card" style={{ maxWidth: 480, marginTop: 20 }}>
         <h3 style={{ marginTop: 0 }}>Payment policy</h3>
@@ -333,6 +372,145 @@ function PaymentTab({ demo, password, onSaved }: TabProps) {
         {justSaved && <SavedBadge />}
       </div>
     </>
+  );
+}
+
+// Admin-only cost tracking (Sept 2026, Mario): Confirmed/Pending Spend
+// are computed live from demo.programming (summed by status — never
+// stored, so they can't drift out of sync with the actual season), Ops &
+// Team Costs is an editable list of internal staffing/ops line items,
+// and Remaining Budget nets total budget against all three. Mirrors what
+// the old per-project tool already tracked for at least one real client.
+// Never shown to the client — sanitizeDemo strips `budget` entirely
+// before a client-scoped route ever returns a demo record.
+function BudgetSpendCard({ demo, password, onSaved }: TabProps) {
+  const [newName, setNewName] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const confirmedSpend = demo.programming
+    .filter((p) => p.status === "confirmed")
+    .reduce((sum, p) => sum + p.priceQuoted, 0);
+  const pendingSpend = demo.programming
+    .filter((p) => p.status === "proposed")
+    .reduce((sum, p) => sum + p.priceQuoted, 0);
+  const opsTotal = demo.budget.opsAndTeamCosts.reduce((sum, item) => sum + item.amount, 0);
+  const remaining = (demo.budget.totalBudget ?? 0) - confirmedSpend - pendingSpend - opsTotal;
+  const currency = demo.budget.currency;
+
+  async function addItem() {
+    if (!newName.trim()) return;
+    setAdding(true);
+    try {
+      onSaved(await adminApi.addOpsCostItem(password, demo.id, { name: newName.trim(), amount: Number(newAmount) || 0 }));
+      setNewName("");
+      setNewAmount("");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function updateAmount(itemId: string, amount: number) {
+    setBusyId(itemId);
+    try {
+      onSaved(await adminApi.updateOpsCostItem(password, demo.id, itemId, { amount }));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function removeItem(itemId: string) {
+    setBusyId(itemId);
+    try {
+      onSaved(await adminApi.deleteOpsCostItem(password, demo.id, itemId));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="card" style={{ maxWidth: 480, marginTop: 20 }}>
+      <h3 style={{ marginTop: 0 }}>Spend</h3>
+
+      <SpendRow label="Confirmed spend" value={confirmedSpend} currency={currency} />
+      <SpendRow label="Pending spend" value={pendingSpend} currency={currency} />
+      <SpendRow label="Ops & team costs" value={opsTotal} currency={currency} />
+
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--color-pill-bg)" }}>
+        <strong style={{ fontSize: "0.85rem" }}>Line items</strong>
+        {demo.budget.opsAndTeamCosts.length === 0 && (
+          <p style={{ fontSize: "0.82rem", opacity: 0.6, margin: "6px 0" }}>No line items yet.</p>
+        )}
+        {demo.budget.opsAndTeamCosts.map((item) => (
+          <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <span style={{ flex: 1, fontSize: "0.85rem" }}>{item.name}</span>
+            <input
+              type="number"
+              defaultValue={item.amount}
+              disabled={busyId === item.id}
+              onBlur={(e) => {
+                const next = Number(e.target.value) || 0;
+                if (next !== item.amount) updateAmount(item.id, next);
+              }}
+              style={{ width: 110 }}
+            />
+            <button
+              className="btn-secondary"
+              disabled={busyId === item.id}
+              onClick={() => removeItem(item.id)}
+              style={{ padding: "4px 10px" }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+          <input
+            placeholder="e.g. Program Manager, Transportation…"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <input
+            type="number"
+            placeholder="Amount"
+            value={newAmount}
+            onChange={(e) => setNewAmount(e.target.value)}
+            style={{ width: 110 }}
+          />
+          <button onClick={addItem} disabled={adding || !newName.trim()} style={{ whiteSpace: "nowrap" }}>
+            + Add
+          </button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--color-pill-bg)" }}>
+        <SpendRow label="Remaining budget" value={remaining} currency={currency} strong />
+      </div>
+    </div>
+  );
+}
+
+function SpendRow({
+  label,
+  value,
+  currency,
+  strong,
+}: {
+  label: string;
+  value: number;
+  currency: string;
+  strong?: boolean;
+}) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: strong ? "1rem" : "0.85rem" }}>
+      <span style={{ opacity: strong ? 1 : 0.75, fontWeight: strong ? 600 : 400 }}>{label}</span>
+      <span style={{ fontWeight: strong ? 700 : 500, fontVariantNumeric: "tabular-nums" }}>
+        {value.toLocaleString()} {currency}
+      </span>
+    </div>
   );
 }
 
@@ -473,13 +651,13 @@ function DangerZoneTab({ demo, password }: { demo: DemoRecord; password: string 
         </>
       )}
 
-      <h3 style={{ marginTop: 32 }}>Delete demo</h3>
+      <h3 style={{ marginTop: 32 }}>Delete project</h3>
       <p style={{ fontSize: "0.85rem" }}>
-        Permanently deletes this demo, its logo, and its data. This cannot be undone.
+        Permanently deletes this project, its logo, and its data. This cannot be undone.
       </p>
       {!confirmDelete ? (
         <button className="btn-secondary" onClick={() => setConfirmDelete(true)}>
-          Delete this demo
+          Delete this project
         </button>
       ) : (
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>

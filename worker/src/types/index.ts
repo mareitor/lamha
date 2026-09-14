@@ -68,9 +68,22 @@ export interface ProgrammingEntry {
   updatedAt: number;
 }
 
+// One internal cost line (staffing, ops, anything that isn't a
+// programming booking) -- e.g. "Program Manager - 5 months". Admin-only:
+// see sanitizeDemo, which strips the whole Budget object before a
+// client-scoped route ever returns a demo record. Sept 2026 -- added
+// when migrating a real client project whose old system already tracked
+// these (program-manager/assistant costs alongside the season budget).
+export interface OpsCostItem {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 export interface Budget {
   totalBudget: number | null;
   currency: string;
+  opsAndTeamCosts: OpsCostItem[];
 }
 
 export interface InvoiceEntry {
@@ -319,7 +332,10 @@ export interface DemoIndexEntry {
 
 // Client-facing sanitized view: strips admin-only internals
 // (logoStoragePath, createdBy) before returning to /api/demo/:id routes.
-export type SanitizedDemoRecord = Omit<DemoRecord, "branding" | "createdBy"> & {
+// budget is dropped entirely (Sept 2026, Mario) -- internal cost
+// tracking (total budget, ops/staffing costs) is admin-only now; the
+// client dashboard no longer has a Budget section at all.
+export type SanitizedDemoRecord = Omit<DemoRecord, "branding" | "createdBy" | "budget"> & {
   branding: Omit<Branding, "logoStoragePath">;
 };
 

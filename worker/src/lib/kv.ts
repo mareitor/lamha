@@ -70,7 +70,15 @@ function demoKey(id: string): string {
 export async function getDemo(env: Env, id: string): Promise<DemoRecord | null> {
   const raw = await env.LAMHA_KV.get(demoKey(id));
   if (!raw) return null;
-  return JSON.parse(raw) as DemoRecord;
+  const demo = JSON.parse(raw) as DemoRecord;
+  // Defensive default for records written before opsAndTeamCosts existed
+  // (Sept 2026) -- avoids a one-time migration route for one optional
+  // array field. Every route reads through here, so this covers all of
+  // them.
+  if (!Array.isArray(demo.budget?.opsAndTeamCosts)) {
+    demo.budget = { ...demo.budget, opsAndTeamCosts: [] };
+  }
+  return demo;
 }
 
 export async function putDemo(env: Env, demo: DemoRecord): Promise<void> {
@@ -253,6 +261,7 @@ export async function createDemo(env: Env, input: CreateDemoInput): Promise<Demo
     budget: {
       totalBudget: null,
       currency: "SAR",
+      opsAndTeamCosts: [],
     },
     invoices: [],
   };

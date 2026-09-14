@@ -86,7 +86,7 @@ export function NewDemoForm() {
   return (
     <AdminLayout>
       <div style={{ maxWidth: 480 }}>
-        <h1>New demo</h1>
+        <h1>New project</h1>
         <form onSubmit={handleSubmit}>
           <label htmlFor="companyName">Company name</label>
           <input

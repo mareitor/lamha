@@ -166,16 +166,8 @@ demoRoutes.delete(
   },
 );
 
-demoRoutes.patch(
-  "/:id/budget",
-  requireDemoExists,
-  requireNotExpired,
-  requireSelfService,
-  async (c) => {
-    const demo = c.get("demo");
-    const body = await c.req.json<Partial<DemoRecord["budget"]>>();
-    const updated: DemoRecord = { ...demo, budget: { ...demo.budget, ...body } };
-    await putDemo(c.env, updated);
-    return c.json(sanitizeDemo(updated));
-  },
-);
+// Client-facing budget route removed (Sept 2026, Mario): budget is
+// admin-only now -- there's no client-visible Budget section at all, so
+// there's nothing left for a client (even a self-service one) to edit
+// here. Set totalBudget/ops costs from the admin editor's Budget & payment
+// tab instead (PATCH /api/admin/demos/:id/budget and the ops-items routes).

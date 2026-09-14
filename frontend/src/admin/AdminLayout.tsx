@@ -55,7 +55,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             </span>
           </Link>
           <Link to="/admin" style={{ fontSize: "0.85rem", color: "var(--color-on-dark-muted)" }}>
-            Demos
+            Projects
           </Link>
           <Link to="/admin/creatives" style={{ fontSize: "0.85rem", color: "var(--color-on-dark-muted)" }}>
             Creative Registry

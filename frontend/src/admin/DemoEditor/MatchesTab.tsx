@@ -77,15 +77,15 @@ export function MatchesTab({ demo, password }: Props) {
       <div className="card" style={{ marginBottom: 24, maxWidth: 640 }}>
         <h3 style={{ marginTop: 0 }}>AI creative matching</h3>
         <p style={{ fontSize: "0.85rem", opacity: 0.75 }}>
-          Reads this demo's Event brief and shortlists the best-fitting <strong>Active</strong> creatives from your
+          Reads this project's Event brief and shortlists the best-fitting <strong>Active</strong> creatives from your
           real Creative Registry, with contact info so you can reach out directly. This is a sourcing tool for
-          you — nothing here is ever shown to the client or written into this demo's Season Agenda, which stays
+          you — nothing here is ever shown to the client or written into this project's Season Agenda, which stays
           the standard fictional lineup.
         </p>
 
         {!hasBrief ? (
           <p style={{ fontSize: "0.85rem", color: "var(--overdue)" }}>
-            This demo's Event tab doesn't have a name, type, or description yet — fill in at least one of those
+            This project's Event tab doesn't have a name, type, or description yet — fill in at least one of those
             first so there's something to match against.
           </p>
         ) : (

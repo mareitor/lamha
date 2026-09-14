@@ -61,9 +61,19 @@ export interface ProgrammingEntry {
   updatedAt: number;
 }
 
+// Admin-only internal cost line (staffing, ops, anything that isn't a
+// programming booking). Never present on a client-fetched DemoRecord --
+// sanitizeDemo strips the whole `budget` object worker-side.
+export interface OpsCostItem {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 export interface Budget {
   totalBudget: number | null;
   currency: string;
+  opsAndTeamCosts: OpsCostItem[];
 }
 
 export interface InvoiceEntry {

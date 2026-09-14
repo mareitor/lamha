@@ -185,7 +185,7 @@ export function OnboardingWizard({ demo, onComplete }: Props) {
               Back
             </button>
             <button onClick={finish} disabled={submitting}>
-              {submitting ? "Setting up…" : "Enter demo"}
+              {submitting ? "Setting up…" : "Enter project"}
             </button>
           </div>
         </div>
